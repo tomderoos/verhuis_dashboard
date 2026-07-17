@@ -1,0 +1,16 @@
+node_modules
+dist
+.DS_Store
+.env
+.env.local
+*.log
+.vscode/*
+!.vscode/extensions.json
+
+# Persoonlijke data (nooit committen)
+public/_import.json
+*.backup.json
+*.bank.csv
+
+# Lokale Claude Code / editor settings
+.claude/settings.local.json
