@@ -86,10 +86,40 @@ input, select, textarea {
   gap: 24px;
 }
 
-.page-head {
+.hero {
+  position: relative;
+  background-size: cover;
+  background-position: center 55%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  min-height: 220px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.hero-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.72) 0%,
+    rgba(15, 23, 42, 0.45) 45%,
+    rgba(15, 23, 42, 0.15) 100%
+  );
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  padding: 22px 26px 90px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-top {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .brand {
@@ -100,18 +130,53 @@ input, select, textarea {
 
 .brand-icon {
   font-size: 32px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
 .brand-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
 .brand-sub {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Header rechts binnen hero */
+.hero .header-right {
+  color: #fff;
+}
+.hero .top-nav {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+}
+.hero .nav-tab {
+  color: rgba(255, 255, 255, 0.85);
+}
+.hero .nav-tab:hover { color: #fff; }
+.hero .nav-tab.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.hero .user-chip .dim { color: rgba(255, 255, 255, 0.85); }
+.hero .user-chip .btn.ghost {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .hero-overlay {
+    padding: 16px 18px 40px;
+  }
+  .hero { min-height: 180px; }
+  .brand-title { font-size: 20px; }
 }
 
 .page-foot {

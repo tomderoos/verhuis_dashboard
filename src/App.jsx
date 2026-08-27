@@ -41,41 +41,55 @@ function Shell() {
     window.location.hash = id;
   };
 
+  const headerImg = `${import.meta.env.BASE_URL}header.jpg`;
+
   return (
     <div className="page">
-      <header className="page-head">
-        <div className="brand">
-          <span className="brand-icon">🏠</span>
-          <div>
-            <div className="brand-title">Huis Dashboard</div>
-            <div className="brand-sub">Verkoop Kloversdonk 213 · Verhuizing Bloemheuvellaan 51</div>
-          </div>
-        </div>
-        <div className="header-right">
-          <nav className="top-nav">
-            {NAV.map((item) => (
-              <button
-                key={item.id}
-                className={`nav-tab ${route === item.id ? 'active' : ''}`}
-                onClick={() => goTo(item.id)}
-              >
-                <span aria-hidden>{item.icon}</span> {item.label}
-              </button>
-            ))}
-          </nav>
-          <div className="user-chip">
-            {session ? (
-              <>
-                <span className="dim">{session.user?.email}</span>
-                <button className="btn ghost small" onClick={actions.signOut}>
-                  Uitloggen
-                </button>
-              </>
-            ) : state.localMode ? (
-              <span className="pill accent" title="Lokale testmodus — data staat alleen in deze browser">
-                Lokaal
-              </span>
-            ) : null}
+      <header
+        className="hero"
+        style={{ backgroundImage: `url(${headerImg})` }}
+      >
+        <div className="hero-overlay">
+          <div className="hero-top">
+            <div className="brand">
+              <span className="brand-icon">🏠</span>
+              <div>
+                <div className="brand-title">Huis Dashboard</div>
+                <div className="brand-sub">
+                  Verkoop Kloversdonk 213 · Verhuizing Bloemheuvellaan 51
+                </div>
+              </div>
+            </div>
+            <div className="header-right">
+              <nav className="top-nav">
+                {NAV.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`nav-tab ${route === item.id ? 'active' : ''}`}
+                    onClick={() => goTo(item.id)}
+                  >
+                    <span aria-hidden>{item.icon}</span> {item.label}
+                  </button>
+                ))}
+              </nav>
+              <div className="user-chip">
+                {session ? (
+                  <>
+                    <span className="dim">{session.user?.email}</span>
+                    <button className="btn ghost small" onClick={actions.signOut}>
+                      Uitloggen
+                    </button>
+                  </>
+                ) : state.localMode ? (
+                  <span
+                    className="pill accent"
+                    title="Lokale testmodus — data staat alleen in deze browser"
+                  >
+                    Lokaal
+                  </span>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
       </header>
