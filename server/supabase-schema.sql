@@ -35,10 +35,11 @@ alter table public.events   enable row level security;
 alter table public.settings enable row level security;
 
 create or replace function public.is_allowed()
-returns boolean language sql stable as $$
-  select coalesce(auth.jwt() ->> 'email', '') in (
-    'tomderoos@proton.me',
-    'rinske.jansen@proton.me'
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from auth.users
+    where id = auth.uid()
+      and lower(email) in ('tomderoos@proton.me', 'rinske.jansen@proton.me')
   );
 $$;
 
