@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useStore } from './store.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Transacties from './pages/Transacties.jsx';
-import Begroting from './pages/Begroting.jsx';
-import Rapportages from './pages/Rapportages.jsx';
-import Instellingen from './pages/Instellingen.jsx';
+import Countdown from './components/Countdown.jsx';
+import TodoList from './components/TodoList.jsx';
+import Timeline from './components/Timeline.jsx';
+import ServerControl from './components/ServerControl.jsx';
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', component: Dashboard },
-  { id: 'transacties', label: 'Transacties', icon: '💳', component: Transacties },
-  { id: 'begroting', label: 'Begroting', icon: '🎯', component: Begroting },
-  { id: 'rapportages', label: 'Rapportages', icon: '📈', component: Rapportages },
-  { id: 'instellingen', label: 'Instellingen', icon: '⚙️', component: Instellingen },
+  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+  { id: 'server', label: 'Server', icon: '⚙️' },
 ];
 
 export default function App() {
@@ -20,7 +15,6 @@ export default function App() {
     const hash = window.location.hash.replace('#', '');
     return NAV.some((n) => n.id === hash) ? hash : 'dashboard';
   });
-  const { state } = useStore();
 
   useEffect(() => {
     const onHash = () => {
@@ -31,47 +25,49 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  useEffect(() => {
-    const theme = state.settings.theme;
-    if (theme === 'light' || theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', theme);
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
-  }, [state.settings.theme]);
-
-  const active = NAV.find((n) => n.id === route) || NAV[0];
-  const ActiveComponent = active.component;
-
   const goTo = (id) => {
     setRoute(id);
     window.location.hash = id;
   };
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
+    <div className="page">
+      <header className="page-head">
+        <div className="brand">
           <span className="brand-icon">🏠</span>
-          <span>Huis Dashboard</span>
+          <div>
+            <div className="brand-title">Huis Dashboard</div>
+            <div className="brand-sub">Verkoop Kloversdonk 51 · Verhuizing Bloemheuvellaan 51</div>
+          </div>
         </div>
-        {NAV.map((item) => (
-          <button
-            key={item.id}
-            className={`nav-item ${item.id === route ? 'active' : ''}`}
-            onClick={() => goTo(item.id)}
-          >
-            <span className="icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-        <div className="sidebar-footer">
-          Data wordt lokaal opgeslagen in je browser.
-        </div>
-      </aside>
-      <main className="main">
-        <ActiveComponent onNavigate={goTo} />
-      </main>
+        <nav className="top-nav">
+          {NAV.map((item) => (
+            <button
+              key={item.id}
+              className={`nav-tab ${route === item.id ? 'active' : ''}`}
+              onClick={() => goTo(item.id)}
+            >
+              <span aria-hidden>{item.icon}</span> {item.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      {route === 'dashboard' && (
+        <>
+          <Countdown />
+          <div className="grid-2">
+            <TodoList />
+            <Timeline />
+          </div>
+        </>
+      )}
+
+      {route === 'server' && <ServerControl />}
+
+      <footer className="page-foot">
+        Data lokaal in je browser · dev-server via <code>npm run control</code>
+      </footer>
     </div>
   );
 }
