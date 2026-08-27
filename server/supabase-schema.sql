@@ -66,10 +66,16 @@ create policy "allowed read settings"  on public.settings for select using (publ
 create policy "allowed write settings" on public.settings for insert with check (public.is_allowed());
 create policy "allowed update settings" on public.settings for update using (public.is_allowed());
 
--- Realtime: laat wijzigingen naar alle clients streamen.
-alter publication supabase_realtime add table public.todos;
-alter publication supabase_realtime add table public.events;
-alter publication supabase_realtime add table public.settings;
+-- Realtime: laat wijzigingen naar alle clients streamen (idempotent).
+do $$ begin
+  alter publication supabase_realtime add table public.todos;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.events;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.settings;
+exception when duplicate_object then null; end $$;
 
 -- updated_at auto-onderhoud.
 create or replace function public.touch_updated_at()
