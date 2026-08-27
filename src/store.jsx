@@ -66,6 +66,12 @@ function saveLocal(state) {
   } catch {}
 }
 
+function reportWriteError(setState, error) {
+  console.error('Supabase write error', error);
+  const msg = (error && (error.message || error.hint || String(error))) || 'Onbekende fout';
+  setState((s) => ({ ...s, syncError: msg }));
+}
+
 const CLOCK_SKEW_SIGNALS = ['issued at future', 'jwt', 'iat', 'nbf'];
 
 async function retryOnClockSkew(fn, keepGoing, { maxAttempts = 5, baseDelayMs = 800 } = {}) {
@@ -274,7 +280,7 @@ function makeActions(setState, sessionRef) {
         return;
       }
       const { error } = await supabase.from('todos').insert({ text: t });
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     updateTodo: async (id, patch) => {
       if (isLocal()) {
@@ -293,7 +299,7 @@ function makeActions(setState, sessionRef) {
       if ('done' in patch) row.done = patch.done;
       if ('comment' in patch) row.comment = patch.comment;
       const { error } = await supabase.from('todos').update(row).eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     toggleTodo: async (id) => {
       if (isLocal()) {
@@ -310,7 +316,7 @@ function makeActions(setState, sessionRef) {
         return { ...s, todos: s.todos.map((t) => (t.id === id ? { ...t, done: next } : t)) };
       });
       const { error } = await supabase.from('todos').update({ done: next }).eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     removeTodo: async (id) => {
       if (isLocal()) {
@@ -319,7 +325,7 @@ function makeActions(setState, sessionRef) {
       }
       setState((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
       const { error } = await supabase.from('todos').delete().eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     clearCompletedTodos: async () => {
       if (isLocal()) {
@@ -328,7 +334,7 @@ function makeActions(setState, sessionRef) {
       }
       setState((s) => ({ ...s, todos: s.todos.filter((t) => !t.done) }));
       const { error } = await supabase.from('todos').delete().eq('done', true);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
 
     addEvent: async (event) => {
@@ -343,7 +349,7 @@ function makeActions(setState, sessionRef) {
         return;
       }
       const { error } = await supabase.from('events').insert(row);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     updateEvent: async (id, patch) => {
       if (isLocal()) {
@@ -363,7 +369,7 @@ function makeActions(setState, sessionRef) {
       if ('type' in patch) row.type = patch.type;
       if ('notes' in patch) row.notes = patch.notes;
       const { error } = await supabase.from('events').update(row).eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     removeEvent: async (id) => {
       if (isLocal()) {
@@ -372,7 +378,7 @@ function makeActions(setState, sessionRef) {
       }
       setState((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
       const { error } = await supabase.from('events').delete().eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
 
     addExpense: async (expense) => {
@@ -389,7 +395,7 @@ function makeActions(setState, sessionRef) {
         return;
       }
       const { error } = await supabase.from('expenses').insert(row);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     updateExpense: async (id, patch) => {
       if (isLocal()) {
@@ -411,7 +417,7 @@ function makeActions(setState, sessionRef) {
       if ('date' in patch) row.date = patch.date;
       if ('notes' in patch) row.notes = patch.notes;
       const { error } = await supabase.from('expenses').update(row).eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
     removeExpense: async (id) => {
       if (isLocal()) {
@@ -420,7 +426,7 @@ function makeActions(setState, sessionRef) {
       }
       setState((s) => ({ ...s, expenses: s.expenses.filter((e) => e.id !== id) }));
       const { error } = await supabase.from('expenses').delete().eq('id', id);
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
 
     setCountdown: async (key, iso) => {
@@ -434,7 +440,7 @@ function makeActions(setState, sessionRef) {
       const { error } = await supabase
         .from('settings')
         .upsert({ key, value }, { onConflict: 'key' });
-      if (error) console.error(error);
+      if (error) reportWriteError(setState, error);
     },
 
     signInWithEmail: async (email) => {
