@@ -3,6 +3,7 @@ import Countdown from './components/Countdown.jsx';
 import TodoList from './components/TodoList.jsx';
 import Timeline from './components/Timeline.jsx';
 import Expenses from './components/Expenses.jsx';
+import SaleItems from './components/SaleItems.jsx';
 import ServerControl from './components/ServerControl.jsx';
 import AuthGate from './components/AuthGate.jsx';
 import { useStore } from './store.jsx';
@@ -10,6 +11,7 @@ import { useStore } from './store.jsx';
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
   { id: 'uitgaven', label: 'Uitgaven', icon: '💰' },
+  { id: 'verkopen', label: 'Verkopen', icon: '🏷️' },
   { id: 'server', label: 'Server', icon: '⚙️' },
 ];
 
@@ -117,6 +119,8 @@ function Shell() {
       )}
 
       {route === 'uitgaven' && <Expenses />}
+
+      {route === 'verkopen' && <SaleItems />}
 
       {route === 'server' && <ServerControl />}
 

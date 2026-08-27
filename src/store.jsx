@@ -24,6 +24,9 @@ const DEFAULT_LOCAL = {
   expenses: [
     { id: uid(), description: 'Muurverf woonkamer', category: 'verf', amount: 85.5, planned: true, date: today(), notes: '' },
   ],
+  saleItems: [
+    { id: uid(), title: 'Oude eettafel', platform: 'marktplaats', url: '', askingPrice: 75, sold: false, soldPrice: null, notes: '' },
+  ],
 };
 
 const DEFAULT_STATE = {
@@ -33,6 +36,7 @@ const DEFAULT_STATE = {
   todos: [],
   events: [],
   expenses: [],
+  saleItems: [],
   loading: true,
   syncError: null,
   localMode: false,
@@ -125,6 +129,19 @@ function expenseFromRow(row) {
   };
 }
 
+function saleItemFromRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    platform: row.platform || 'marktplaats',
+    url: row.url || '',
+    askingPrice: Number(row.asking_price) || 0,
+    sold: !!row.sold,
+    soldPrice: row.sold_price == null ? null : Number(row.sold_price),
+    notes: row.notes || '',
+  };
+}
+
 export function StoreProvider({ children }) {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -178,7 +195,7 @@ export function StoreProvider({ children }) {
           return res.data;
         }, () => !cancelled).catch((err) => ({ __failed: true, label, err }));
 
-      const [todos, events, expenses, settings] = await Promise.all([
+      const [todos, events, expenses, saleItems, settings] = await Promise.all([
         loadOne('todos', () =>
           supabase.from('todos').select('*').order('done').order('created_at', { ascending: false })
         ),
@@ -186,11 +203,14 @@ export function StoreProvider({ children }) {
         loadOne('expenses', () =>
           supabase.from('expenses').select('*').order('date', { ascending: false })
         ),
+        loadOne('sale_items', () =>
+          supabase.from('sale_items').select('*').order('sold').order('created_at', { ascending: false })
+        ),
         loadOne('settings', () => supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS)),
       ]);
       if (cancelled) return;
 
-      const failures = [todos, events, expenses, settings].filter((r) => r && r.__failed);
+      const failures = [todos, events, expenses, saleItems, settings].filter((r) => r && r.__failed);
       const asRows = (r) => (r && r.__failed ? [] : r || []);
 
       const settingsMap = {};
@@ -211,6 +231,7 @@ export function StoreProvider({ children }) {
         todos: asRows(todos).map(todoFromRow),
         events: asRows(events).map(eventFromRow),
         expenses: asRows(expenses).map(expenseFromRow),
+        saleItems: asRows(saleItems).map(saleItemFromRow),
         loading: false,
         syncError,
         localMode: false,
@@ -238,6 +259,13 @@ export function StoreProvider({ children }) {
       })
       .subscribe();
 
+    const saleItemsCh = supabase
+      .channel('rt-sale-items')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sale_items' }, (payload) => {
+        setState((s) => applySaleItemChange(s, payload));
+      })
+      .subscribe();
+
     const settingsCh = supabase
       .channel('rt-settings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
@@ -245,7 +273,7 @@ export function StoreProvider({ children }) {
       })
       .subscribe();
 
-    channelsRef.current = [todosCh, eventsCh, expensesCh, settingsCh];
+    channelsRef.current = [todosCh, eventsCh, expensesCh, saleItemsCh, settingsCh];
 
     return () => {
       cancelled = true;
@@ -435,6 +463,73 @@ function makeActions(setState, sessionRef) {
       if (error) reportWriteError(setState, error);
     },
 
+    addSaleItem: async (item) => {
+      const row = {
+        title: item.title || '',
+        platform: item.platform || 'marktplaats',
+        url: item.url || '',
+        asking_price: Number(item.askingPrice) || 0,
+        sold: !!item.sold,
+        sold_price: item.soldPrice == null || item.soldPrice === '' ? null : Number(item.soldPrice),
+        notes: item.notes || '',
+      };
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          saleItems: [
+            {
+              id: uid(),
+              title: row.title,
+              platform: row.platform,
+              url: row.url,
+              askingPrice: row.asking_price,
+              sold: row.sold,
+              soldPrice: row.sold_price,
+              notes: row.notes,
+            },
+            ...s.saleItems,
+          ],
+        }));
+        return;
+      }
+      const { error } = await supabase.from('sale_items').insert(row);
+      if (error) reportWriteError(setState, error);
+    },
+    updateSaleItem: async (id, patch) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          saleItems: s.saleItems.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+        }));
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        saleItems: s.saleItems.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+      }));
+      const row = {};
+      if ('title' in patch) row.title = patch.title;
+      if ('platform' in patch) row.platform = patch.platform;
+      if ('url' in patch) row.url = patch.url;
+      if ('askingPrice' in patch) row.asking_price = Number(patch.askingPrice) || 0;
+      if ('sold' in patch) row.sold = !!patch.sold;
+      if ('soldPrice' in patch) {
+        row.sold_price = patch.soldPrice == null || patch.soldPrice === '' ? null : Number(patch.soldPrice);
+      }
+      if ('notes' in patch) row.notes = patch.notes;
+      const { error } = await supabase.from('sale_items').update(row).eq('id', id);
+      if (error) reportWriteError(setState, error);
+    },
+    removeSaleItem: async (id) => {
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, saleItems: s.saleItems.filter((it) => it.id !== id) }));
+        return;
+      }
+      setState((s) => ({ ...s, saleItems: s.saleItems.filter((it) => it.id !== id) }));
+      const { error } = await supabase.from('sale_items').delete().eq('id', id);
+      if (error) reportWriteError(setState, error);
+    },
+
     setCountdown: async (key, iso) => {
       if (!COUNTDOWN_KEYS.includes(key)) return;
       const value = iso && iso.length ? iso : null;
@@ -510,6 +605,23 @@ function applyExpenseChange(state, payload) {
   }
   if (type === 'DELETE') {
     return { ...state, expenses: state.expenses.filter((x) => x.id !== payload.old.id) };
+  }
+  return state;
+}
+
+function applySaleItemChange(state, payload) {
+  const type = payload.eventType;
+  if (type === 'INSERT') {
+    const it = saleItemFromRow(payload.new);
+    if (state.saleItems.some((x) => x.id === it.id)) return state;
+    return { ...state, saleItems: [it, ...state.saleItems] };
+  }
+  if (type === 'UPDATE') {
+    const it = saleItemFromRow(payload.new);
+    return { ...state, saleItems: state.saleItems.map((x) => (x.id === it.id ? it : x)) };
+  }
+  if (type === 'DELETE') {
+    return { ...state, saleItems: state.saleItems.filter((x) => x.id !== payload.old.id) };
   }
   return state;
 }

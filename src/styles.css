@@ -1095,3 +1095,169 @@ input, select, textarea {
   color: var(--text-subtle);
   text-transform: capitalize;
 }
+
+/* ===== Sale items ===== */
+.sale-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 700px) {
+  .sale-summary { grid-template-columns: 1fr; }
+}
+
+.sale-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 2fr auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .sale-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sale-form .btn { grid-column: 1 / -1; }
+}
+
+.sale-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sale-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  transition: border-color 0.15s, background 0.15s;
+}
+.sale-item:hover { border-color: var(--border-strong); }
+.sale-item.is-sold {
+  background: color-mix(in oklab, var(--success) 6%, transparent);
+  border-color: color-mix(in oklab, var(--success) 25%, transparent);
+}
+
+.sale-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sale-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sale-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sale-title {
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+}
+.sale-title:focus { border-bottom: 1px solid var(--accent); }
+
+.sale-item.is-sold .sale-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.sale-link {
+  text-decoration: none;
+  color: var(--accent);
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+}
+.sale-link:hover { background: color-mix(in oklab, var(--accent) 20%, transparent); }
+
+.sale-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sale-url {
+  min-width: 180px;
+  flex: 1;
+}
+
+.sale-prices {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.sale-asking, .sale-earned, .sale-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.sale-mark {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.sale-price-input {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  width: 100px;
+}
+
+.sale-sold-btn {
+  background: color-mix(in oklab, var(--success) 15%, transparent);
+  color: var(--success);
+  border-color: color-mix(in oklab, var(--success) 30%, transparent);
+  font-weight: 600;
+}
+.sale-sold-btn:hover {
+  background: color-mix(in oklab, var(--success) 25%, transparent);
+}
+
+.sale-actions {
+  display: flex;
+  gap: 2px;
+}
+
+@media (max-width: 800px) {
+  .sale-item {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "badge body"
+      "prices prices"
+      "actions actions";
+  }
+  .sale-badge { grid-area: badge; }
+  .sale-body { grid-area: body; }
+  .sale-prices { grid-area: prices; }
+  .sale-actions { grid-area: actions; justify-content: flex-end; }
+  .sale-url { min-width: 120px; }
+}

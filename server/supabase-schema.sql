@@ -67,6 +67,30 @@ create policy "allowed read settings"  on public.settings for select using (publ
 create policy "allowed write settings" on public.settings for insert with check (public.is_allowed());
 create policy "allowed update settings" on public.settings for update using (public.is_allowed());
 
+create table if not exists public.sale_items (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  platform text not null default 'marktplaats',
+  url text not null default '',
+  asking_price numeric(12, 2) not null default 0,
+  sold boolean not null default false,
+  sold_price numeric(12, 2),
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.sale_items enable row level security;
+
+drop policy if exists "allowed read sale_items"   on public.sale_items;
+drop policy if exists "allowed write sale_items"  on public.sale_items;
+drop policy if exists "allowed update sale_items" on public.sale_items;
+drop policy if exists "allowed delete sale_items" on public.sale_items;
+create policy "allowed read sale_items"   on public.sale_items for select using (public.is_allowed());
+create policy "allowed write sale_items"  on public.sale_items for insert with check (public.is_allowed());
+create policy "allowed update sale_items" on public.sale_items for update using (public.is_allowed());
+create policy "allowed delete sale_items" on public.sale_items for delete using (public.is_allowed());
+
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   description text not null,
@@ -103,6 +127,9 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   alter publication supabase_realtime add table public.expenses;
 exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.sale_items;
+exception when duplicate_object then null; end $$;
 
 -- updated_at auto-onderhoud.
 create or replace function public.touch_updated_at()
@@ -115,6 +142,8 @@ end $$;
 drop trigger if exists todos_touch on public.todos;
 drop trigger if exists events_touch on public.events;
 drop trigger if exists expenses_touch on public.expenses;
-create trigger todos_touch    before update on public.todos    for each row execute function public.touch_updated_at();
-create trigger events_touch   before update on public.events   for each row execute function public.touch_updated_at();
-create trigger expenses_touch before update on public.expenses for each row execute function public.touch_updated_at();
+drop trigger if exists sale_items_touch on public.sale_items;
+create trigger todos_touch      before update on public.todos      for each row execute function public.touch_updated_at();
+create trigger events_touch     before update on public.events     for each row execute function public.touch_updated_at();
+create trigger expenses_touch   before update on public.expenses   for each row execute function public.touch_updated_at();
+create trigger sale_items_touch before update on public.sale_items for each row execute function public.touch_updated_at();
