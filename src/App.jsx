@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import Countdown from './components/Countdown.jsx';
 import TodoList from './components/TodoList.jsx';
 import Timeline from './components/Timeline.jsx';
+import Expenses from './components/Expenses.jsx';
 import ServerControl from './components/ServerControl.jsx';
 import AuthGate from './components/AuthGate.jsx';
 import { useStore } from './store.jsx';
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+  { id: 'uitgaven', label: 'Uitgaven', icon: '💰' },
   { id: 'server', label: 'Server', icon: '⚙️' },
 ];
 
@@ -113,6 +115,8 @@ function Shell() {
           </div>
         </>
       )}
+
+      {route === 'uitgaven' && <Expenses />}
 
       {route === 'server' && <ServerControl />}
 

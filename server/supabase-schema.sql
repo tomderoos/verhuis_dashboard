@@ -66,6 +66,29 @@ create policy "allowed read settings"  on public.settings for select using (publ
 create policy "allowed write settings" on public.settings for insert with check (public.is_allowed());
 create policy "allowed update settings" on public.settings for update using (public.is_allowed());
 
+create table if not exists public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  description text not null,
+  category text not null default 'overig',
+  amount numeric(12, 2) not null default 0,
+  planned boolean not null default false,
+  date date not null default current_date,
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.expenses enable row level security;
+
+drop policy if exists "allowed read expenses"   on public.expenses;
+drop policy if exists "allowed write expenses"  on public.expenses;
+drop policy if exists "allowed update expenses" on public.expenses;
+drop policy if exists "allowed delete expenses" on public.expenses;
+create policy "allowed read expenses"   on public.expenses for select using (public.is_allowed());
+create policy "allowed write expenses"  on public.expenses for insert with check (public.is_allowed());
+create policy "allowed update expenses" on public.expenses for update using (public.is_allowed());
+create policy "allowed delete expenses" on public.expenses for delete using (public.is_allowed());
+
 -- Realtime: laat wijzigingen naar alle clients streamen (idempotent).
 do $$ begin
   alter publication supabase_realtime add table public.todos;
@@ -75,6 +98,9 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 do $$ begin
   alter publication supabase_realtime add table public.settings;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.expenses;
 exception when duplicate_object then null; end $$;
 
 -- updated_at auto-onderhoud.
@@ -87,5 +113,7 @@ end $$;
 
 drop trigger if exists todos_touch on public.todos;
 drop trigger if exists events_touch on public.events;
-create trigger todos_touch  before update on public.todos  for each row execute function public.touch_updated_at();
-create trigger events_touch before update on public.events for each row execute function public.touch_updated_at();
+drop trigger if exists expenses_touch on public.expenses;
+create trigger todos_touch    before update on public.todos    for each row execute function public.touch_updated_at();
+create trigger events_touch   before update on public.events   for each row execute function public.touch_updated_at();
+create trigger expenses_touch before update on public.expenses for each row execute function public.touch_updated_at();

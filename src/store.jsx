@@ -21,6 +21,9 @@ const DEFAULT_LOCAL = {
   events: [
     { id: uid(), date: today(), title: 'Makelaar langs voor waardebepaling', type: 'bezichtiging', notes: '' },
   ],
+  expenses: [
+    { id: uid(), description: 'Muurverf woonkamer', category: 'verf', amount: 85.5, planned: true, date: today(), notes: '' },
+  ],
 };
 
 const DEFAULT_STATE = {
@@ -29,6 +32,7 @@ const DEFAULT_STATE = {
   kloversdonkKeyDate: null,
   todos: [],
   events: [],
+  expenses: [],
   loading: true,
   syncError: null,
   localMode: false,
@@ -82,6 +86,18 @@ function eventFromRow(row) {
   };
 }
 
+function expenseFromRow(row) {
+  return {
+    id: row.id,
+    description: row.description,
+    category: row.category || 'overig',
+    amount: Number(row.amount) || 0,
+    planned: !!row.planned,
+    date: row.date,
+    notes: row.notes || '',
+  };
+}
+
 export function StoreProvider({ children }) {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -129,14 +145,16 @@ export function StoreProvider({ children }) {
 
     (async () => {
       try {
-        const [todosRes, eventsRes, settingsRes] = await Promise.all([
+        const [todosRes, eventsRes, expensesRes, settingsRes] = await Promise.all([
           supabase.from('todos').select('*').order('done').order('created_at', { ascending: false }),
           supabase.from('events').select('*').order('date'),
+          supabase.from('expenses').select('*').order('date', { ascending: false }),
           supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS),
         ]);
         if (cancelled) return;
         if (todosRes.error) throw todosRes.error;
         if (eventsRes.error) throw eventsRes.error;
+        if (expensesRes.error) throw expensesRes.error;
         if (settingsRes.error) throw settingsRes.error;
 
         const settingsMap = {};
@@ -151,6 +169,7 @@ export function StoreProvider({ children }) {
           kloversdonkKeyDate: settingsMap.kloversdonkKeyDate ?? null,
           todos: (todosRes.data || []).map(todoFromRow),
           events: (eventsRes.data || []).map(eventFromRow),
+          expenses: (expensesRes.data || []).map(expenseFromRow),
           loading: false,
           syncError: null,
           localMode: false,
@@ -176,6 +195,13 @@ export function StoreProvider({ children }) {
       })
       .subscribe();
 
+    const expensesCh = supabase
+      .channel('rt-expenses')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, (payload) => {
+        setState((s) => applyExpenseChange(s, payload));
+      })
+      .subscribe();
+
     const settingsCh = supabase
       .channel('rt-settings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
@@ -183,7 +209,7 @@ export function StoreProvider({ children }) {
       })
       .subscribe();
 
-    channelsRef.current = [todosCh, eventsCh, settingsCh];
+    channelsRef.current = [todosCh, eventsCh, expensesCh, settingsCh];
 
     return () => {
       cancelled = true;
@@ -325,6 +351,54 @@ function makeActions(setState, sessionRef) {
       if (error) console.error(error);
     },
 
+    addExpense: async (expense) => {
+      const row = {
+        description: expense.description || '',
+        category: expense.category || 'overig',
+        amount: Number(expense.amount) || 0,
+        planned: !!expense.planned,
+        date: expense.date || today(),
+        notes: expense.notes || '',
+      };
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, expenses: [{ id: uid(), ...row }, ...s.expenses] }));
+        return;
+      }
+      const { error } = await supabase.from('expenses').insert(row);
+      if (error) console.error(error);
+    },
+    updateExpense: async (id, patch) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          expenses: s.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+        }));
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        expenses: s.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      }));
+      const row = {};
+      if ('description' in patch) row.description = patch.description;
+      if ('category' in patch) row.category = patch.category;
+      if ('amount' in patch) row.amount = Number(patch.amount) || 0;
+      if ('planned' in patch) row.planned = !!patch.planned;
+      if ('date' in patch) row.date = patch.date;
+      if ('notes' in patch) row.notes = patch.notes;
+      const { error } = await supabase.from('expenses').update(row).eq('id', id);
+      if (error) console.error(error);
+    },
+    removeExpense: async (id) => {
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, expenses: s.expenses.filter((e) => e.id !== id) }));
+        return;
+      }
+      setState((s) => ({ ...s, expenses: s.expenses.filter((e) => e.id !== id) }));
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (error) console.error(error);
+    },
+
     setCountdown: async (key, iso) => {
       if (!COUNTDOWN_KEYS.includes(key)) return;
       const value = iso && iso.length ? iso : null;
@@ -383,6 +457,23 @@ function applyEventChange(state, payload) {
   }
   if (type === 'DELETE') {
     return { ...state, events: state.events.filter((x) => x.id !== payload.old.id) };
+  }
+  return state;
+}
+
+function applyExpenseChange(state, payload) {
+  const type = payload.eventType;
+  if (type === 'INSERT') {
+    const e = expenseFromRow(payload.new);
+    if (state.expenses.some((x) => x.id === e.id)) return state;
+    return { ...state, expenses: [e, ...state.expenses] };
+  }
+  if (type === 'UPDATE') {
+    const e = expenseFromRow(payload.new);
+    return { ...state, expenses: state.expenses.map((x) => (x.id === e.id ? e : x)) };
+  }
+  if (type === 'DELETE') {
+    return { ...state, expenses: state.expenses.filter((x) => x.id !== payload.old.id) };
   }
   return state;
 }
