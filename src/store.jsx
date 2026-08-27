@@ -66,6 +66,27 @@ function saveLocal(state) {
   } catch {}
 }
 
+const CLOCK_SKEW_SIGNALS = ['issued at future', 'jwt', 'iat', 'nbf'];
+
+async function retryOnClockSkew(fn, keepGoing, { maxAttempts = 5, baseDelayMs = 800 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = ((err && (err.message || err.error || '')) + '').toLowerCase();
+      const transient = CLOCK_SKEW_SIGNALS.some((s) => msg.includes(s));
+      if (!transient || !keepGoing()) throw err;
+      try {
+        await supabase.auth.refreshSession();
+      } catch {}
+      await new Promise((r) => setTimeout(r, baseDelayMs * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 function todoFromRow(row) {
   return {
     id: row.id,
@@ -145,17 +166,20 @@ export function StoreProvider({ children }) {
 
     (async () => {
       try {
-        const [todosRes, eventsRes, expensesRes, settingsRes] = await Promise.all([
-          supabase.from('todos').select('*').order('done').order('created_at', { ascending: false }),
-          supabase.from('events').select('*').order('date'),
-          supabase.from('expenses').select('*').order('date', { ascending: false }),
-          supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS),
-        ]);
+        const fetchAll = async () => {
+          const res = await Promise.all([
+            supabase.from('todos').select('*').order('done').order('created_at', { ascending: false }),
+            supabase.from('events').select('*').order('date'),
+            supabase.from('expenses').select('*').order('date', { ascending: false }),
+            supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS),
+          ]);
+          for (const r of res) if (r.error) throw r.error;
+          return res;
+        };
+
+        const [todosRes, eventsRes, expensesRes, settingsRes] =
+          await retryOnClockSkew(fetchAll, () => !cancelled);
         if (cancelled) return;
-        if (todosRes.error) throw todosRes.error;
-        if (eventsRes.error) throw eventsRes.error;
-        if (expensesRes.error) throw expensesRes.error;
-        if (settingsRes.error) throw settingsRes.error;
 
         const settingsMap = {};
         for (const row of settingsRes.data || []) {
