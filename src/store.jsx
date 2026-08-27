@@ -171,44 +171,50 @@ export function StoreProvider({ children }) {
     setState((s) => ({ ...s, loading: true, syncError: null, localMode: false }));
 
     (async () => {
-      try {
-        const fetchAll = async () => {
-          const res = await Promise.all([
-            supabase.from('todos').select('*').order('done').order('created_at', { ascending: false }),
-            supabase.from('events').select('*').order('date'),
-            supabase.from('expenses').select('*').order('date', { ascending: false }),
-            supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS),
-          ]);
-          for (const r of res) if (r.error) throw r.error;
-          return res;
-        };
+      const loadOne = (label, run) =>
+        retryOnClockSkew(async () => {
+          const res = await run();
+          if (res.error) throw res.error;
+          return res.data;
+        }, () => !cancelled).catch((err) => ({ __failed: true, label, err }));
 
-        const [todosRes, eventsRes, expensesRes, settingsRes] =
-          await retryOnClockSkew(fetchAll, () => !cancelled);
-        if (cancelled) return;
+      const [todos, events, expenses, settings] = await Promise.all([
+        loadOne('todos', () =>
+          supabase.from('todos').select('*').order('done').order('created_at', { ascending: false })
+        ),
+        loadOne('events', () => supabase.from('events').select('*').order('date')),
+        loadOne('expenses', () =>
+          supabase.from('expenses').select('*').order('date', { ascending: false })
+        ),
+        loadOne('settings', () => supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS)),
+      ]);
+      if (cancelled) return;
 
-        const settingsMap = {};
-        for (const row of settingsRes.data || []) {
-          const v = row.value;
-          settingsMap[row.key] = typeof v === 'string' ? v : v?.raw ?? null;
-        }
+      const failures = [todos, events, expenses, settings].filter((r) => r && r.__failed);
+      const asRows = (r) => (r && r.__failed ? [] : r || []);
 
-        setState({
-          keyDate: settingsMap.keyDate ?? KEY_HANDOVER_DATE,
-          moveDate: settingsMap.moveDate ?? null,
-          kloversdonkKeyDate: settingsMap.kloversdonkKeyDate ?? null,
-          todos: (todosRes.data || []).map(todoFromRow),
-          events: (eventsRes.data || []).map(eventFromRow),
-          expenses: (expensesRes.data || []).map(expenseFromRow),
-          loading: false,
-          syncError: null,
-          localMode: false,
-        });
-      } catch (err) {
-        if (cancelled) return;
-        console.error('Supabase load error', err);
-        setState((s) => ({ ...s, loading: false, syncError: err.message || String(err) }));
+      const settingsMap = {};
+      for (const row of asRows(settings)) {
+        const v = row.value;
+        settingsMap[row.key] = typeof v === 'string' ? v : v?.raw ?? null;
       }
+
+      const syncError = failures.length
+        ? failures.map((f) => `${f.label}: ${f.err.message || f.err}`).join(' · ')
+        : null;
+      if (failures.length) console.error('Supabase load errors', failures);
+
+      setState({
+        keyDate: settingsMap.keyDate ?? KEY_HANDOVER_DATE,
+        moveDate: settingsMap.moveDate ?? null,
+        kloversdonkKeyDate: settingsMap.kloversdonkKeyDate ?? null,
+        todos: asRows(todos).map(todoFromRow),
+        events: asRows(events).map(eventFromRow),
+        expenses: asRows(expenses).map(expenseFromRow),
+        loading: false,
+        syncError,
+        localMode: false,
+      });
     })();
 
     const todosCh = supabase
