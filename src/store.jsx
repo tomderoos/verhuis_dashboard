@@ -2,10 +2,26 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { supabase } from './supabaseClient.js';
 
 export const KEY_HANDOVER_DATE = '2026-12-18T10:00:00';
-
 export const COUNTDOWN_KEYS = ['keyDate', 'moveDate', 'kloversdonkKeyDate'];
 
+const IS_DEV = import.meta.env.DEV;
+const LOCAL_KEY = 'verhuis-dashboard.local.v1';
+
 const StoreContext = createContext(null);
+
+const DEFAULT_LOCAL = {
+  keyDate: KEY_HANDOVER_DATE,
+  moveDate: null,
+  kloversdonkKeyDate: null,
+  todos: [
+    { id: uid(), text: 'Woonkamer opruimen voor fotoshoot', done: false, comment: '' },
+    { id: uid(), text: 'Kleine reparaties in de keuken', done: false, comment: '' },
+    { id: uid(), text: 'Tuin bijhouden', done: false, comment: '' },
+  ],
+  events: [
+    { id: uid(), date: today(), title: 'Makelaar langs voor waardebepaling', type: 'bezichtiging', notes: '' },
+  ],
+};
 
 const DEFAULT_STATE = {
   keyDate: KEY_HANDOVER_DATE,
@@ -15,7 +31,36 @@ const DEFAULT_STATE = {
   events: [],
   loading: true,
   syncError: null,
+  localMode: false,
 };
+
+function uid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadLocal() {
+  if (typeof window === 'undefined') return DEFAULT_LOCAL;
+  try {
+    const raw = window.localStorage.getItem(LOCAL_KEY);
+    if (!raw) return DEFAULT_LOCAL;
+    return { ...DEFAULT_LOCAL, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_LOCAL;
+  }
+}
+
+function saveLocal(state) {
+  if (typeof window === 'undefined') return;
+  const { loading, syncError, localMode, ...persistable } = state;
+  try {
+    window.localStorage.setItem(LOCAL_KEY, JSON.stringify(persistable));
+  } catch {}
+}
 
 function todoFromRow(row) {
   return {
@@ -42,6 +87,11 @@ export function StoreProvider({ children }) {
   const [authReady, setAuthReady] = useState(false);
   const [state, setState] = useState(DEFAULT_STATE);
   const channelsRef = useRef([]);
+  const sessionRef = useRef(null);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     let mounted = true;
@@ -65,12 +115,17 @@ export function StoreProvider({ children }) {
     channelsRef.current = [];
 
     if (!session) {
-      setState({ ...DEFAULT_STATE, loading: false });
+      if (IS_DEV) {
+        const local = loadLocal();
+        setState({ ...local, loading: false, syncError: null, localMode: true });
+      } else {
+        setState({ ...DEFAULT_STATE, loading: false });
+      }
       return;
     }
 
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true, syncError: null }));
+    setState((s) => ({ ...s, loading: true, syncError: null, localMode: false }));
 
     (async () => {
       try {
@@ -98,6 +153,7 @@ export function StoreProvider({ children }) {
           events: (eventsRes.data || []).map(eventFromRow),
           loading: false,
           syncError: null,
+          localMode: false,
         });
       } catch (err) {
         if (cancelled) return;
@@ -136,7 +192,7 @@ export function StoreProvider({ children }) {
     };
   }, [session?.user?.id]);
 
-  const actions = useMemo(() => makeActions(setState), []);
+  const actions = useMemo(() => makeActions(setState, sessionRef), []);
 
   const value = useMemo(
     () => ({ state, actions, session, authReady }),
@@ -145,15 +201,39 @@ export function StoreProvider({ children }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-function makeActions(setState) {
+function makeActions(setState, sessionRef) {
+  const isLocal = () => !sessionRef.current;
+
+  const localMutate = (mutator) => {
+    setState((s) => {
+      const next = mutator(s);
+      saveLocal(next);
+      return next;
+    });
+  };
+
   return {
     addTodo: async (text) => {
       const t = text.trim();
       if (!t) return;
-      const { error } = await supabase.from('todos').insert({ text: t }).select().single();
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          todos: [{ id: uid(), text: t, done: false, comment: '' }, ...s.todos],
+        }));
+        return;
+      }
+      const { error } = await supabase.from('todos').insert({ text: t });
       if (error) console.error(error);
     },
     updateTodo: async (id, patch) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          todos: s.todos.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        }));
+        return;
+      }
       setState((s) => ({
         ...s,
         todos: s.todos.map((t) => (t.id === id ? { ...t, ...patch } : t)),
@@ -166,6 +246,13 @@ function makeActions(setState) {
       if (error) console.error(error);
     },
     toggleTodo: async (id) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          todos: s.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+        }));
+        return;
+      }
       let next;
       setState((s) => {
         const todo = s.todos.find((t) => t.id === id);
@@ -176,11 +263,19 @@ function makeActions(setState) {
       if (error) console.error(error);
     },
     removeTodo: async (id) => {
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
+        return;
+      }
       setState((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
       const { error } = await supabase.from('todos').delete().eq('id', id);
       if (error) console.error(error);
     },
     clearCompletedTodos: async () => {
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, todos: s.todos.filter((t) => !t.done) }));
+        return;
+      }
       setState((s) => ({ ...s, todos: s.todos.filter((t) => !t.done) }));
       const { error } = await supabase.from('todos').delete().eq('done', true);
       if (error) console.error(error);
@@ -193,10 +288,21 @@ function makeActions(setState) {
         type: event.type || 'klus',
         notes: event.notes || '',
       };
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, events: [{ id: uid(), ...row }, ...s.events] }));
+        return;
+      }
       const { error } = await supabase.from('events').insert(row);
       if (error) console.error(error);
     },
     updateEvent: async (id, patch) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+        }));
+        return;
+      }
       setState((s) => ({
         ...s,
         events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
@@ -210,6 +316,10 @@ function makeActions(setState) {
       if (error) console.error(error);
     },
     removeEvent: async (id) => {
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
+        return;
+      }
       setState((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
       const { error } = await supabase.from('events').delete().eq('id', id);
       if (error) console.error(error);
@@ -218,6 +328,10 @@ function makeActions(setState) {
     setCountdown: async (key, iso) => {
       if (!COUNTDOWN_KEYS.includes(key)) return;
       const value = iso && iso.length ? iso : null;
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, [key]: value }));
+        return;
+      }
       setState((s) => ({ ...s, [key]: value }));
       const { error } = await supabase
         .from('settings')

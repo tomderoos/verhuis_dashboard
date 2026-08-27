@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../store.jsx';
 
+const IS_DEV = import.meta.env.DEV;
+
 export default function AuthGate({ children }) {
   const { session, authReady, actions, state } = useStore();
   const [email, setEmail] = useState('');
@@ -10,6 +12,11 @@ export default function AuthGate({ children }) {
 
   if (!authReady) {
     return <div className="loading-screen">Laden…</div>;
+  }
+
+  if (IS_DEV && !session) {
+    if (state.loading) return <div className="loading-screen">Data laden…</div>;
+    return children;
   }
 
   if (!session) {

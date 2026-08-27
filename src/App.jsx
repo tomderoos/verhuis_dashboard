@@ -64,10 +64,18 @@ function Shell() {
             ))}
           </nav>
           <div className="user-chip">
-            <span className="dim">{session?.user?.email}</span>
-            <button className="btn ghost small" onClick={actions.signOut}>
-              Uitloggen
-            </button>
+            {session ? (
+              <>
+                <span className="dim">{session.user?.email}</span>
+                <button className="btn ghost small" onClick={actions.signOut}>
+                  Uitloggen
+                </button>
+              </>
+            ) : state.localMode ? (
+              <span className="pill accent" title="Lokale testmodus — data staat alleen in deze browser">
+                Lokaal
+              </span>
+            ) : null}
           </div>
         </div>
       </header>
