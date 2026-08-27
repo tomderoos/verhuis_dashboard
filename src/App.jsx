@@ -3,6 +3,8 @@ import Countdown from './components/Countdown.jsx';
 import TodoList from './components/TodoList.jsx';
 import Timeline from './components/Timeline.jsx';
 import ServerControl from './components/ServerControl.jsx';
+import AuthGate from './components/AuthGate.jsx';
+import { useStore } from './store.jsx';
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
@@ -10,11 +12,20 @@ const NAV = [
 ];
 
 export default function App() {
+  return (
+    <AuthGate>
+      <Shell />
+    </AuthGate>
+  );
+}
+
+function Shell() {
   const [route, setRoute] = useState(() => {
     if (typeof window === 'undefined') return 'dashboard';
     const hash = window.location.hash.replace('#', '');
     return NAV.some((n) => n.id === hash) ? hash : 'dashboard';
   });
+  const { session, actions, state } = useStore();
 
   useEffect(() => {
     const onHash = () => {
@@ -40,18 +51,32 @@ export default function App() {
             <div className="brand-sub">Verkoop Kloversdonk 51 · Verhuizing Bloemheuvellaan 51</div>
           </div>
         </div>
-        <nav className="top-nav">
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-tab ${route === item.id ? 'active' : ''}`}
-              onClick={() => goTo(item.id)}
-            >
-              <span aria-hidden>{item.icon}</span> {item.label}
+        <div className="header-right">
+          <nav className="top-nav">
+            {NAV.map((item) => (
+              <button
+                key={item.id}
+                className={`nav-tab ${route === item.id ? 'active' : ''}`}
+                onClick={() => goTo(item.id)}
+              >
+                <span aria-hidden>{item.icon}</span> {item.label}
+              </button>
+            ))}
+          </nav>
+          <div className="user-chip">
+            <span className="dim">{session?.user?.email}</span>
+            <button className="btn ghost small" onClick={actions.signOut}>
+              Uitloggen
             </button>
-          ))}
-        </nav>
+          </div>
+        </div>
       </header>
+
+      {state.syncError && (
+        <div className="callout error-callout">
+          Kon niet synchroniseren met Supabase: {state.syncError}
+        </div>
+      )}
 
       {route === 'dashboard' && (
         <>
@@ -66,7 +91,7 @@ export default function App() {
       {route === 'server' && <ServerControl />}
 
       <footer className="page-foot">
-        Data lokaal in je browser · dev-server via <code>npm run control</code>
+        Data synchroniseert live via Supabase · dev-server via <code>npm run control</code>
       </footer>
     </div>
   );
