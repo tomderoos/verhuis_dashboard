@@ -22,52 +22,96 @@ const NL_DATE = new Intl.DateTimeFormat('nl-NL', {
   year: 'numeric',
 });
 
-export default function Countdown() {
+const VARIANT_CLASS = {
+  keyDate: 'variant-primary',
+  moveDate: 'variant-warm',
+  kloversdonkKeyDate: 'variant-cool',
+};
+
+export default function Countdown({ stateKey, eyebrow }) {
   const { state, actions } = useStore();
+  const value = state[stateKey];
   const [now, setNow] = useState(() => new Date());
   const [editing, setEditing] = useState(false);
-
-  const target = new Date(state.keyDate);
+  const [draft, setDraft] = useState(value ? value.slice(0, 16) : '');
 
   useEffect(() => {
+    if (!value) return;
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [value]);
 
-  const parts = diffParts(target, now);
+  useEffect(() => {
+    setDraft(value ? value.slice(0, 16) : '');
+  }, [value]);
+
+  const save = () => {
+    actions.setCountdown(stateKey, draft || null);
+    setEditing(false);
+  };
+
+  const clearDate = () => {
+    actions.setCountdown(stateKey, null);
+    setDraft('');
+    setEditing(false);
+  };
+
+  const target = value ? new Date(value) : null;
+  const parts = target ? diffParts(target, now) : null;
+  const variant = VARIANT_CLASS[stateKey] || 'variant-primary';
 
   return (
-    <section className="card countdown">
+    <section className={`card countdown-card ${variant} ${value ? '' : 'is-empty'}`}>
       <div className="countdown-head">
-        <div>
-          <div className="eyebrow">Sleuteloverdracht nieuwe huis</div>
-          <h2 className="countdown-date">{NL_DATE.format(target)}</h2>
-        </div>
-        <button className="btn ghost" onClick={() => setEditing((v) => !v)}>
-          {editing ? 'Klaar' : 'Datum wijzigen'}
+        <div className="eyebrow">{eyebrow}</div>
+        <button
+          className="btn ghost tiny edit-btn"
+          onClick={() => setEditing((v) => !v)}
+          aria-label={editing ? 'Sluit bewerken' : 'Bewerk datum'}
+          title={editing ? 'Sluit bewerken' : 'Bewerk datum'}
+        >
+          {editing ? '✕' : '✎'}
         </button>
       </div>
 
+      {value ? (
+        <div className="countdown-date">{NL_DATE.format(target)}</div>
+      ) : (
+        <div className="countdown-date muted">Nog niet gepland</div>
+      )}
+
       {editing && (
-        <div className="row" style={{ marginTop: 8 }}>
+        <div className="stack">
           <input
             type="datetime-local"
             className="input"
-            value={state.keyDate.slice(0, 16)}
-            onChange={(e) => actions.setKeyDate(e.target.value)}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
           />
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn primary small" onClick={save}>Opslaan</button>
+            {value && (
+              <button className="btn ghost small" onClick={clearDate}>Verwijderen</button>
+            )}
+          </div>
         </div>
       )}
 
-      {parts.over ? (
-        <div className="countdown-over">🎉 De sleutels zijn van jullie!</div>
-      ) : (
+      {parts && parts.over && <div className="countdown-over">🎉 Het is zover!</div>}
+
+      {parts && !parts.over && (
         <div className="countdown-grid" role="timer" aria-live="polite">
           <CountUnit value={parts.days} label="dagen" />
           <CountUnit value={parts.hours} label="uur" />
           <CountUnit value={parts.minutes} label="min" />
           <CountUnit value={parts.seconds} label="sec" />
         </div>
+      )}
+
+      {!parts && !editing && (
+        <button className="btn primary set-btn" onClick={() => setEditing(true)}>
+          Datum instellen
+        </button>
       )}
     </section>
   );

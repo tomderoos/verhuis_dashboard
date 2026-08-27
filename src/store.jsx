@@ -3,10 +3,14 @@ import { supabase } from './supabaseClient.js';
 
 export const KEY_HANDOVER_DATE = '2026-12-18T10:00:00';
 
+export const COUNTDOWN_KEYS = ['keyDate', 'moveDate', 'kloversdonkKeyDate'];
+
 const StoreContext = createContext(null);
 
 const DEFAULT_STATE = {
   keyDate: KEY_HANDOVER_DATE,
+  moveDate: null,
+  kloversdonkKeyDate: null,
   todos: [],
   events: [],
   loading: true,
@@ -73,19 +77,23 @@ export function StoreProvider({ children }) {
         const [todosRes, eventsRes, settingsRes] = await Promise.all([
           supabase.from('todos').select('*').order('done').order('created_at', { ascending: false }),
           supabase.from('events').select('*').order('date'),
-          supabase.from('settings').select('*').eq('key', 'keyDate').maybeSingle(),
+          supabase.from('settings').select('*').in('key', COUNTDOWN_KEYS),
         ]);
         if (cancelled) return;
         if (todosRes.error) throw todosRes.error;
         if (eventsRes.error) throw eventsRes.error;
         if (settingsRes.error) throw settingsRes.error;
 
-        const keyDate =
-          (settingsRes.data && (settingsRes.data.value?.raw || settingsRes.data.value)) ||
-          KEY_HANDOVER_DATE;
+        const settingsMap = {};
+        for (const row of settingsRes.data || []) {
+          const v = row.value;
+          settingsMap[row.key] = typeof v === 'string' ? v : v?.raw ?? null;
+        }
 
         setState({
-          keyDate: typeof keyDate === 'string' ? keyDate : KEY_HANDOVER_DATE,
+          keyDate: settingsMap.keyDate ?? KEY_HANDOVER_DATE,
+          moveDate: settingsMap.moveDate ?? null,
+          kloversdonkKeyDate: settingsMap.kloversdonkKeyDate ?? null,
           todos: (todosRes.data || []).map(todoFromRow),
           events: (eventsRes.data || []).map(eventFromRow),
           loading: false,
@@ -207,11 +215,13 @@ function makeActions(setState) {
       if (error) console.error(error);
     },
 
-    setKeyDate: async (iso) => {
-      setState((s) => ({ ...s, keyDate: iso }));
+    setCountdown: async (key, iso) => {
+      if (!COUNTDOWN_KEYS.includes(key)) return;
+      const value = iso && iso.length ? iso : null;
+      setState((s) => ({ ...s, [key]: value }));
       const { error } = await supabase
         .from('settings')
-        .upsert({ key: 'keyDate', value: iso }, { onConflict: 'key' });
+        .upsert({ key, value }, { onConflict: 'key' });
       if (error) console.error(error);
     },
 
@@ -265,11 +275,13 @@ function applyEventChange(state, payload) {
 
 function applySettingChange(state, payload) {
   const row = payload.new || payload.old;
-  if (!row || row.key !== 'keyDate') return state;
-  if (payload.eventType === 'DELETE') return { ...state, keyDate: KEY_HANDOVER_DATE };
+  if (!row || !COUNTDOWN_KEYS.includes(row.key)) return state;
+  if (payload.eventType === 'DELETE') {
+    return { ...state, [row.key]: row.key === 'keyDate' ? KEY_HANDOVER_DATE : null };
+  }
   const v = payload.new.value;
-  const keyDate = typeof v === 'string' ? v : v?.raw || KEY_HANDOVER_DATE;
-  return { ...state, keyDate };
+  const value = typeof v === 'string' ? v : v?.raw ?? null;
+  return { ...state, [row.key]: value };
 }
 
 export function useStore() {

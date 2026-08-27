@@ -178,50 +178,97 @@ input, select, textarea {
 }
 
 /* ===== Countdown ===== */
-.countdown {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+.countdown-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .countdown-row { grid-template-columns: 1fr; }
+}
+
+.countdown-card {
   color: #fff;
   border-color: transparent;
   box-shadow: var(--shadow-lg);
-  gap: 20px;
+  gap: 14px;
+  padding: 20px;
+  min-height: 250px;
 }
 
-.countdown .eyebrow {
-  color: rgba(255, 255, 255, 0.75);
+.countdown-card.variant-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+.countdown-card.variant-warm {
+  background: linear-gradient(135deg, #f97316 0%, #db2777 100%);
+}
+.countdown-card.variant-cool {
+  background: linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%);
+}
+
+.countdown-card.is-empty {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px dashed var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.countdown-card .eyebrow {
+  color: rgba(255, 255, 255, 0.85);
+}
+.countdown-card.is-empty .eyebrow {
+  color: var(--text-muted);
 }
 
 .countdown-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
+.edit-btn {
+  color: inherit;
+  opacity: 0.75;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.countdown-card.is-empty .edit-btn {
+  border-color: var(--border);
+}
+.edit-btn:hover { opacity: 1; }
+
 .countdown-date {
-  margin: 6px 0 0;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   text-transform: capitalize;
+  line-height: 1.2;
+}
+.countdown-date.muted {
+  color: var(--text-subtle);
+  font-style: italic;
+  font-weight: 500;
 }
 
 .countdown-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 8px;
+  margin-top: auto;
 }
 
 .count-unit {
   background: rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(6px);
-  border-radius: var(--radius);
-  padding: 18px 12px;
+  border-radius: var(--radius-sm);
+  padding: 12px 4px;
   text-align: center;
 }
 
 .count-value {
-  font-size: 40px;
+  font-size: 26px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -229,23 +276,55 @@ input, select, textarea {
 }
 
 .count-label {
-  margin-top: 6px;
+  margin-top: 4px;
   text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  letter-spacing: 0.08em;
   opacity: 0.85;
 }
 
 .countdown-over {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   text-align: center;
-  padding: 24px 0;
+  padding: 12px 0;
 }
 
-@media (max-width: 500px) {
-  .count-value { font-size: 30px; }
-  .countdown-date { font-size: 20px; }
+.set-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.countdown-card .input {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  color-scheme: dark;
+}
+.countdown-card.is-empty .input {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+  color-scheme: auto;
+}
+.countdown-card .btn.primary {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+.countdown-card.is-empty .btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.countdown-card .btn.ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.countdown-card.is-empty .btn.ghost {
+  border-color: var(--border);
+  color: var(--text);
 }
 
 /* ===== Inputs / buttons ===== */

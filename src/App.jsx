@@ -80,7 +80,11 @@ function Shell() {
 
       {route === 'dashboard' && (
         <>
-          <Countdown />
+          <div className="countdown-row">
+            <Countdown stateKey="kloversdonkKeyDate" eyebrow="Sleutels Kloversdonk 51" />
+            <Countdown stateKey="moveDate" eyebrow="Verhuisdatum" />
+            <Countdown stateKey="keyDate" eyebrow="Sleutels Bloemheuvellaan 51" />
+          </div>
           <div className="grid-2">
             <TodoList />
             <Timeline />
