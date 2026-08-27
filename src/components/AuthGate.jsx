@@ -37,7 +37,7 @@ export default function AuthGate({ children }) {
             <span className="brand-icon">🏠</span>
             <div>
               <div className="brand-title">Huis Dashboard</div>
-              <div className="brand-sub">Verkoop Kloversdonk 51 · Verhuizing Bloemheuvellaan 51</div>
+              <div className="brand-sub">Verkoop Kloversdonk 213 · Verhuizing Bloemheuvellaan 51</div>
             </div>
           </div>
           {sent ? (
