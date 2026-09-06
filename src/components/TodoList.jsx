@@ -1,5 +1,22 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store.jsx';
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function TodoList() {
   const { state, actions } = useStore();
@@ -7,10 +24,17 @@ export default function TodoList() {
   const [expandedId, setExpandedId] = useState(null);
 
   const { open, done } = useMemo(() => {
-    const openList = state.todos.filter((t) => !t.done);
-    const doneList = state.todos.filter((t) => t.done);
+    const sortByOrder = (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+    const openList = state.todos.filter((t) => !t.done).slice().sort(sortByOrder);
+    const doneList = state.todos.filter((t) => t.done).slice().sort(sortByOrder);
     return { open: openList, done: doneList };
   }, [state.todos]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const submit = (e) => {
     e.preventDefault();
@@ -20,13 +44,33 @@ export default function TodoList() {
     setText('');
   };
 
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = open.findIndex((t) => t.id === active.id);
+    const newIndex = open.findIndex((t) => t.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reordered = arrayMove(open, oldIndex, newIndex);
+    const before = reordered[newIndex - 1];
+    const after = reordered[newIndex + 1];
+
+    let newSort;
+    if (!before) newSort = (after?.sortOrder ?? 0) - 1000;
+    else if (!after) newSort = (before.sortOrder ?? 0) + 1000;
+    else newSort = ((before.sortOrder ?? 0) + (after.sortOrder ?? 0)) / 2;
+
+    actions.moveTodo(active.id, newSort);
+  };
+
   return (
     <section className="card">
       <div className="card-head">
         <div>
           <h2 className="card-title">To do — huidige huis</h2>
           <div className="card-sub">
-            {open.length} open · {done.length} klaar
+            {open.length} open · {done.length} klaar · sleep om te ordenen
           </div>
         </div>
         {done.length > 0 && (
@@ -48,36 +92,80 @@ export default function TodoList() {
         </button>
       </form>
 
-      <ul className="todo-list">
-        {open.map((todo) => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            expanded={expandedId === todo.id}
-            onExpand={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
-          />
-        ))}
-        {done.map((todo) => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            expanded={expandedId === todo.id}
-            onExpand={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
-          />
-        ))}
-        {state.todos.length === 0 && (
-          <li className="empty">Nog geen taken — voeg je eerste taak toe.</li>
-        )}
-      </ul>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={open.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <ul className="todo-list">
+            {open.map((todo) => (
+              <SortableTodoItem
+                key={todo.id}
+                todo={todo}
+                expanded={expandedId === todo.id}
+                onExpand={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+
+      {done.length > 0 && (
+        <ul className="todo-list todo-done-list">
+          {done.map((todo) => (
+            <TodoItem
+              key={todo.id}
+              todo={todo}
+              expanded={expandedId === todo.id}
+              onExpand={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {state.todos.length === 0 && (
+        <div className="empty">Nog geen taken — voeg je eerste taak toe.</div>
+      )}
     </section>
   );
 }
 
-function TodoItem({ todo, expanded, onExpand }) {
-  const { actions } = useStore();
+function SortableTodoItem({ todo, expanded, onExpand }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: todo.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
   return (
-    <li className={`todo-item ${todo.done ? 'is-done' : ''}`}>
+    <TodoItem
+      todo={todo}
+      expanded={expanded}
+      onExpand={onExpand}
+      dragHandleProps={{ ref: setNodeRef, style, listeners, attributes, isDragging }}
+    />
+  );
+}
+
+function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
+  const { actions } = useStore();
+  const rootProps = dragHandleProps
+    ? { ref: dragHandleProps.ref, style: dragHandleProps.style }
+    : {};
+
+  return (
+    <li className={`todo-item ${todo.done ? 'is-done' : ''}`} {...rootProps}>
       <div className="todo-row">
+        {dragHandleProps && (
+          <button
+            type="button"
+            className="drag-handle"
+            aria-label="Sleep om te ordenen"
+            {...dragHandleProps.listeners}
+            {...dragHandleProps.attributes}
+          >
+            ⋮⋮
+          </button>
+        )}
         <label className="checkbox">
           <input
             type="checkbox"

@@ -6,9 +6,13 @@ create table if not exists public.todos (
   text text not null,
   done boolean not null default false,
   comment text default '' not null,
+  sort_order double precision,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.todos add column if not exists sort_order double precision;
+update public.todos set sort_order = extract(epoch from created_at) where sort_order is null;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),

@@ -501,6 +501,30 @@ input, select, textarea {
   gap: 6px;
 }
 
+.todo-done-list {
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.drag-handle {
+  background: transparent;
+  border: 0;
+  padding: 4px 4px;
+  color: var(--text-subtle);
+  cursor: grab;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: -2px;
+  touch-action: none;
+  border-radius: 4px;
+}
+.drag-handle:hover {
+  color: var(--text-muted);
+  background: var(--bg-muted);
+}
+.drag-handle:active { cursor: grabbing; }
+
 .todo-item {
   border-radius: var(--radius-sm);
   padding: 8px 10px;

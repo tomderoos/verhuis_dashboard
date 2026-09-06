@@ -14,9 +14,9 @@ const DEFAULT_LOCAL = {
   moveDate: null,
   kloversdonkKeyDate: null,
   todos: [
-    { id: uid(), text: 'Woonkamer opruimen voor fotoshoot', done: false, comment: '' },
-    { id: uid(), text: 'Kleine reparaties in de keuken', done: false, comment: '' },
-    { id: uid(), text: 'Tuin bijhouden', done: false, comment: '' },
+    { id: uid(), text: 'Woonkamer opruimen voor fotoshoot', done: false, comment: '', sortOrder: 1 },
+    { id: uid(), text: 'Kleine reparaties in de keuken', done: false, comment: '', sortOrder: 2 },
+    { id: uid(), text: 'Tuin bijhouden', done: false, comment: '', sortOrder: 3 },
   ],
   events: [
     { id: uid(), date: today(), title: 'Makelaar langs voor waardebepaling', type: 'bezichtiging', notes: '' },
@@ -98,12 +98,15 @@ async function retryOnClockSkew(fn, keepGoing, { maxAttempts = 5, baseDelayMs = 
 }
 
 function todoFromRow(row) {
+  const createdAt = row.created_at;
+  const fallbackSort = createdAt ? new Date(createdAt).getTime() : Date.now();
   return {
     id: row.id,
     text: row.text,
     done: !!row.done,
     comment: row.comment || '',
-    createdAt: row.created_at,
+    createdAt,
+    sortOrder: row.sort_order == null ? fallbackSort : Number(row.sort_order),
   };
 }
 
@@ -197,7 +200,7 @@ export function StoreProvider({ children }) {
 
       const [todos, events, expenses, saleItems, settings] = await Promise.all([
         loadOne('todos', () =>
-          supabase.from('todos').select('*').order('done').order('created_at', { ascending: false })
+          supabase.from('todos').select('*').order('done').order('sort_order', { ascending: true, nullsFirst: false })
         ),
         loadOne('events', () => supabase.from('events').select('*').order('date')),
         loadOne('expenses', () =>
@@ -306,14 +309,50 @@ function makeActions(setState, sessionRef) {
     addTodo: async (text) => {
       const t = text.trim();
       if (!t) return;
+      const computeTopSort = (todos) => {
+        const openSorts = todos.filter((x) => !x.done).map((x) => x.sortOrder ?? 0);
+        return (openSorts.length ? Math.min(...openSorts) : 0) - 1000;
+      };
       if (isLocal()) {
         localMutate((s) => ({
           ...s,
-          todos: [{ id: uid(), text: t, done: false, comment: '' }, ...s.todos],
+          todos: [
+            { id: uid(), text: t, done: false, comment: '', sortOrder: computeTopSort(s.todos) },
+            ...s.todos,
+          ],
         }));
         return;
       }
-      const { error } = await supabase.from('todos').insert({ text: t });
+      const sortOrder = computeTopSort(sessionRef.current ? [] : []);
+      // Compute against actual current state via ref-less closure — we don't have
+      // access here, so query minimum from server-safe state via setState read.
+      let currentTodos = [];
+      setState((s) => {
+        currentTodos = s.todos;
+        return s;
+      });
+      const { error } = await supabase
+        .from('todos')
+        .insert({ text: t, sort_order: computeTopSort(currentTodos) });
+      if (error) reportWriteError(setState, error);
+    },
+
+    moveTodo: async (id, newSortOrder) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          todos: s.todos.map((t) => (t.id === id ? { ...t, sortOrder: newSortOrder } : t)),
+        }));
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        todos: s.todos.map((t) => (t.id === id ? { ...t, sortOrder: newSortOrder } : t)),
+      }));
+      const { error } = await supabase
+        .from('todos')
+        .update({ sort_order: newSortOrder })
+        .eq('id', id);
       if (error) reportWriteError(setState, error);
     },
     updateTodo: async (id, patch) => {

@@ -7,6 +7,12 @@ const repoName = process.env.REPO_NAME || 'verhuis_dashboard';
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   base: mode === 'production' ? `/${repoName}/` : '/',
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+  },
   server: {
     port: 5173,
     open: true,
