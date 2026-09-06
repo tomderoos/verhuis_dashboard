@@ -123,6 +123,18 @@ input, select, textarea {
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
 }
 
+.brand-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.55);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color 0.15s;
+}
+.brand-link:hover {
+  text-decoration-color: #fff;
+}
+
 /* Header rechts binnen hero */
 .hero .header-right {
   color: #fff;

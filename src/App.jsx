@@ -61,7 +61,15 @@ function Shell() {
               <div>
                 <div className="brand-title">Huis Dashboard</div>
                 <div className="brand-sub">
-                  Verkoop Kloversdonk 213 · Verhuizing Bloemheuvellaan 51
+                  Verkoop Kloversdonk 213 ·{' '}
+                  <a
+                    href="https://www.funda.nl/detail/koop/apeldoorn/huis-bloemheuvellaan-51/44475822/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="brand-link"
+                  >
+                    Verhuizing Bloemheuvellaan 51
+                  </a>
                 </div>
               </div>
             </div>
