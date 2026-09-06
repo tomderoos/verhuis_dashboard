@@ -55,17 +55,52 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+const ROOM_SUGGESTIONS = [
+  'Woonkamer',
+  'Keuken',
+  'Slaapkamer',
+  'Kinderkamer',
+  'Badkamer',
+  'Toilet',
+  'Hal / gang',
+  'Zolder',
+  'Kelder',
+  'Tuin',
+  'Schuur',
+  'Buiten',
+];
+
 export default function TodoList() {
   const { state, actions } = useStore();
   const [text, setText] = useState('');
+  const [room, setRoom] = useState('');
+  const [filter, setFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
+
+  const roomList = useMemo(() => {
+    const set = new Set();
+    let hasEmpty = false;
+    for (const t of state.todos) {
+      if (t.done) continue;
+      if (t.room) set.add(t.room);
+      else hasEmpty = true;
+    }
+    return { rooms: [...set].sort((a, b) => a.localeCompare(b, 'nl')), hasEmpty };
+  }, [state.todos]);
+
+  const matchesFilter = (t) => {
+    if (filter === 'all') return true;
+    if (filter === '__empty__') return !t.room;
+    return t.room === filter;
+  };
 
   const { open, done } = useMemo(() => {
     const sortByOrder = (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-    const openList = state.todos.filter((t) => !t.done).slice().sort(sortByOrder);
-    const doneList = state.todos.filter((t) => t.done).slice().sort(sortByOrder);
+    const openList = state.todos.filter((t) => !t.done).filter(matchesFilter).slice().sort(sortByOrder);
+    const doneList = state.todos.filter((t) => t.done).filter(matchesFilter).slice().sort(sortByOrder);
     return { open: openList, done: doneList };
-  }, [state.todos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.todos, filter]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -77,7 +112,7 @@ export default function TodoList() {
     e.preventDefault();
     const value = text.trim();
     if (!value) return;
-    actions.addTodo(value);
+    actions.addTodo(value, { room });
     setText('');
   };
 
@@ -117,17 +152,57 @@ export default function TodoList() {
         )}
       </div>
 
-      <form className="row" onSubmit={submit}>
+      <form className="todo-form" onSubmit={submit}>
         <input
           className="input"
           placeholder="Nieuwe taak…"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
+        <input
+          className="input todo-room-input"
+          list="room-suggestions"
+          placeholder="Ruimte (optioneel)"
+          value={room}
+          onChange={(e) => setRoom(e.target.value)}
+        />
+        <datalist id="room-suggestions">
+          {ROOM_SUGGESTIONS.map((r) => (
+            <option key={r} value={r} />
+          ))}
+        </datalist>
         <button className="btn primary" type="submit">
           Toevoegen
         </button>
       </form>
+
+      {(roomList.rooms.length > 0 || roomList.hasEmpty) && (
+        <div className="chip-row">
+          <button
+            className={`chip ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            Alles
+          </button>
+          {roomList.rooms.map((r) => (
+            <button
+              key={r}
+              className={`chip ${filter === r ? 'active' : ''}`}
+              onClick={() => setFilter(r)}
+            >
+              {r}
+            </button>
+          ))}
+          {roomList.hasEmpty && (
+            <button
+              className={`chip ${filter === '__empty__' ? 'active' : ''}`}
+              onClick={() => setFilter('__empty__')}
+            >
+              Zonder ruimte
+            </button>
+          )}
+        </div>
+      )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={open.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -225,6 +300,14 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
           value={todo.text}
           onChange={(e) => actions.updateTodo(todo.id, { text: e.target.value })}
         />
+        {todo.room ? (
+          <RoomTag
+            room={todo.room}
+            onChange={(next) => actions.updateTodo(todo.id, { room: next })}
+          />
+        ) : (
+          <AddRoomButton onSet={(next) => actions.updateTodo(todo.id, { room: next })} />
+        )}
         <button
           className={`btn tiny ${todo.comment ? 'accent' : 'ghost'}`}
           onClick={onExpand}
@@ -255,5 +338,84 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
         </div>
       )}
     </li>
+  );
+}
+
+function RoomTag({ room, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(room);
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="room-tag"
+        onClick={() => {
+          setDraft(room);
+          setEditing(true);
+        }}
+        title="Klik om aan te passen"
+      >
+        {room}
+      </button>
+    );
+  }
+  const commit = () => {
+    onChange(draft.trim());
+    setEditing(false);
+  };
+  return (
+    <input
+      className="input tiny room-edit"
+      list="room-suggestions"
+      value={draft}
+      autoFocus
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') setEditing(false);
+      }}
+    />
+  );
+}
+
+function AddRoomButton({ onSet }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="room-add"
+        onClick={() => setEditing(true)}
+        title="Ruimte toevoegen"
+      >
+        + ruimte
+      </button>
+    );
+  }
+  const commit = () => {
+    const v = draft.trim();
+    if (v) onSet(v);
+    setEditing(false);
+    setDraft('');
+  };
+  return (
+    <input
+      className="input tiny room-edit"
+      list="room-suggestions"
+      placeholder="Ruimte"
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') {
+          setDraft('');
+          setEditing(false);
+        }
+      }}
+    />
   );
 }

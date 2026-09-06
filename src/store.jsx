@@ -14,9 +14,9 @@ const DEFAULT_LOCAL = {
   moveDate: null,
   kloversdonkKeyDate: null,
   todos: [
-    { id: uid(), text: 'Woonkamer opruimen voor fotoshoot', done: false, comment: '', sortOrder: 1 },
-    { id: uid(), text: 'Kleine reparaties in de keuken', done: false, comment: '', sortOrder: 2 },
-    { id: uid(), text: 'Tuin bijhouden', done: false, comment: '', sortOrder: 3 },
+    { id: uid(), text: 'Opruimen voor fotoshoot', done: false, comment: '', room: 'Woonkamer', sortOrder: 1 },
+    { id: uid(), text: 'Kleine reparaties', done: false, comment: '', room: 'Keuken', sortOrder: 2 },
+    { id: uid(), text: 'Bijhouden', done: false, comment: '', room: 'Tuin', sortOrder: 3 },
   ],
   events: [
     { id: uid(), date: today(), title: 'Makelaar langs voor waardebepaling', type: 'bezichtiging', notes: '' },
@@ -105,6 +105,7 @@ function todoFromRow(row) {
     text: row.text,
     done: !!row.done,
     comment: row.comment || '',
+    room: row.room || '',
     createdAt,
     sortOrder: row.sort_order == null ? fallbackSort : Number(row.sort_order),
   };
@@ -306,9 +307,10 @@ function makeActions(setState, sessionRef) {
   };
 
   return {
-    addTodo: async (text) => {
+    addTodo: async (text, options = {}) => {
       const t = text.trim();
       if (!t) return;
+      const room = (options.room || '').trim();
       const computeTopSort = (todos) => {
         const openSorts = todos.filter((x) => !x.done).map((x) => x.sortOrder ?? 0);
         return (openSorts.length ? Math.min(...openSorts) : 0) - 1000;
@@ -317,15 +319,12 @@ function makeActions(setState, sessionRef) {
         localMutate((s) => ({
           ...s,
           todos: [
-            { id: uid(), text: t, done: false, comment: '', sortOrder: computeTopSort(s.todos) },
+            { id: uid(), text: t, done: false, comment: '', room, sortOrder: computeTopSort(s.todos) },
             ...s.todos,
           ],
         }));
         return;
       }
-      const sortOrder = computeTopSort(sessionRef.current ? [] : []);
-      // Compute against actual current state via ref-less closure — we don't have
-      // access here, so query minimum from server-safe state via setState read.
       let currentTodos = [];
       setState((s) => {
         currentTodos = s.todos;
@@ -333,7 +332,7 @@ function makeActions(setState, sessionRef) {
       });
       const { error } = await supabase
         .from('todos')
-        .insert({ text: t, sort_order: computeTopSort(currentTodos) });
+        .insert({ text: t, room, sort_order: computeTopSort(currentTodos) });
       if (error) reportWriteError(setState, error);
     },
 
@@ -371,6 +370,7 @@ function makeActions(setState, sessionRef) {
       if ('text' in patch) row.text = patch.text;
       if ('done' in patch) row.done = patch.done;
       if ('comment' in patch) row.comment = patch.comment;
+      if ('room' in patch) row.room = patch.room;
       const { error } = await supabase.from('todos').update(row).eq('id', id);
       if (error) reportWriteError(setState, error);
     },
