@@ -1,5 +1,42 @@
 import React, { useMemo, useState } from 'react';
+import confetti from 'canvas-confetti';
 import { useStore } from '../store.jsx';
+
+function burstConfetti(origin) {
+  const defaults = {
+    origin: origin || { x: 0.5, y: 0.6 },
+    scalar: 1,
+    ticks: 200,
+    disableForReducedMotion: true,
+  };
+  confetti({
+    ...defaults,
+    particleCount: 80,
+    spread: 90,
+    startVelocity: 45,
+  });
+  setTimeout(
+    () =>
+      confetti({
+        ...defaults,
+        particleCount: 60,
+        spread: 120,
+        startVelocity: 35,
+      }),
+    120
+  );
+  setTimeout(
+    () =>
+      confetti({
+        ...defaults,
+        particleCount: 40,
+        spread: 160,
+        startVelocity: 25,
+        gravity: 0.7,
+      }),
+    260
+  );
+}
 import {
   DndContext,
   PointerSensor,
@@ -170,7 +207,16 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
           <input
             type="checkbox"
             checked={todo.done}
-            onChange={() => actions.toggleTodo(todo.id)}
+            onChange={(e) => {
+              if (!todo.done) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                burstConfetti({
+                  x: (rect.left + rect.width / 2) / window.innerWidth,
+                  y: (rect.top + rect.height / 2) / window.innerHeight,
+                });
+              }
+              actions.toggleTodo(todo.id);
+            }}
           />
           <span />
         </label>
