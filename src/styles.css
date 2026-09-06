@@ -102,7 +102,9 @@ input, select, textarea {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
+.brand > div { min-width: 0; }
 
 .brand-icon {
   font-size: 32px;
@@ -121,6 +123,8 @@ input, select, textarea {
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .brand-link {
@@ -161,10 +165,34 @@ input, select, textarea {
 
 @media (max-width: 700px) {
   .hero-overlay {
-    padding: 16px 18px 40px;
+    padding: 14px 16px 20px;
+    gap: 12px;
   }
-  .hero { min-height: 180px; }
+  .hero { min-height: 200px; }
+  .hero-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
   .brand-title { font-size: 20px; }
+  .brand-sub { font-size: 12.5px; display: flex; flex-direction: column; }
+  .brand-sub-sep { display: none; }
+  .header-right {
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .top-nav {
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .top-nav::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 6px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
 
 .page-foot {
@@ -248,6 +276,11 @@ input, select, textarea {
   gap: 14px;
   padding: 20px;
   min-height: 250px;
+}
+
+@media (max-width: 900px) {
+  .countdown-card { min-height: auto; padding: 16px; gap: 10px; }
+  .countdown-card.is-empty { min-height: auto; }
 }
 
 .countdown-card.variant-primary {
@@ -545,9 +578,8 @@ input, select, textarea {
 }
 @media (max-width: 700px) {
   .todo-form {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
-  .todo-form .btn { grid-column: 1 / -1; }
 }
 
 .todo-room-input { min-width: 0; }
@@ -565,6 +597,10 @@ input, select, textarea {
   max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  .room-tag { max-width: 80px; padding: 2px 7px; font-size: 11px; }
 }
 .room-tag:hover { filter: brightness(0.97); }
 
@@ -600,17 +636,19 @@ input, select, textarea {
 .todo-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .todo-text {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
   border: none;
   background: transparent;
   padding: 4px 0;
   outline: none;
   color: var(--text);
-  min-width: 0;
 }
 .todo-text:focus {
   border-bottom: 1px solid var(--accent);
@@ -682,11 +720,10 @@ input, select, textarea {
   align-items: center;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .event-form {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
-  .event-form .btn { grid-column: 1 / -1; }
 }
 
 .timeline {
@@ -1034,6 +1071,11 @@ input, select, textarea {
   }
   .expense-form .btn { grid-column: 1 / -1; }
 }
+@media (max-width: 500px) {
+  .expense-form {
+    grid-template-columns: 1fr;
+  }
+}
 
 .input-amount {
   position: relative;
@@ -1297,6 +1339,11 @@ input, select, textarea {
     grid-template-columns: 1fr 1fr;
   }
   .sale-form .btn { grid-column: 1 / -1; }
+}
+@media (max-width: 500px) {
+  .sale-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sale-list {
