@@ -264,9 +264,16 @@ input, select, textarea {
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
+.countdown-row-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
 
+@media (max-width: 1100px) {
+  .countdown-row-4 { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) {
   .countdown-row { grid-template-columns: 1fr; }
+  .countdown-row-4 { grid-template-columns: 1fr; }
 }
 
 .countdown-card {
@@ -291,6 +298,9 @@ input, select, textarea {
 }
 .countdown-card.variant-cool {
   background: linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%);
+}
+.countdown-card.variant-mint {
+  background: linear-gradient(135deg, #10b981 0%, #22c55e 100%);
 }
 
 .countdown-card.is-empty {

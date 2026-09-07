@@ -26,6 +26,7 @@ const VARIANT_CLASS = {
   keyDate: 'variant-primary',
   moveDate: 'variant-warm',
   kloversdonkKeyDate: 'variant-cool',
+  salePrepDate: 'variant-mint',
 };
 
 export default function Countdown({ stateKey, eyebrow }) {

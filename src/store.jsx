@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { supabase } from './supabaseClient.js';
 
 export const KEY_HANDOVER_DATE = '2026-12-18T10:00:00';
-export const COUNTDOWN_KEYS = ['keyDate', 'moveDate', 'kloversdonkKeyDate'];
+export const COUNTDOWN_KEYS = ['keyDate', 'moveDate', 'kloversdonkKeyDate', 'salePrepDate'];
 
 const IS_DEV = import.meta.env.DEV;
 const LOCAL_KEY = 'verhuis-dashboard.local.v1';
@@ -13,6 +13,7 @@ const DEFAULT_LOCAL = {
   keyDate: KEY_HANDOVER_DATE,
   moveDate: null,
   kloversdonkKeyDate: null,
+  salePrepDate: null,
   todos: [
     { id: uid(), text: 'Opruimen voor fotoshoot', done: false, comment: '', room: 'Woonkamer', sortOrder: 1 },
     { id: uid(), text: 'Kleine reparaties', done: false, comment: '', room: 'Keuken', sortOrder: 2 },
@@ -33,6 +34,7 @@ const DEFAULT_STATE = {
   keyDate: KEY_HANDOVER_DATE,
   moveDate: null,
   kloversdonkKeyDate: null,
+  salePrepDate: null,
   todos: [],
   events: [],
   expenses: [],
@@ -232,6 +234,7 @@ export function StoreProvider({ children }) {
         keyDate: settingsMap.keyDate ?? KEY_HANDOVER_DATE,
         moveDate: settingsMap.moveDate ?? null,
         kloversdonkKeyDate: settingsMap.kloversdonkKeyDate ?? null,
+        salePrepDate: settingsMap.salePrepDate ?? null,
         todos: asRows(todos).map(todoFromRow),
         events: asRows(events).map(eventFromRow),
         expenses: asRows(expenses).map(expenseFromRow),
