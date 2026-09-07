@@ -636,6 +636,85 @@ input, select, textarea {
   font-size: 12px !important;
 }
 
+.room-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.room-progress-row {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.room-progress-row:hover {
+  background: var(--bg-muted);
+}
+.room-progress-row.is-active {
+  background: var(--accent-soft);
+  border-color: color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+.room-progress-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.room-progress-row.is-active .room-progress-label { color: var(--accent); }
+.room-progress-row.is-complete .room-progress-label { color: var(--success); }
+
+.room-progress-bar-wrap {
+  height: 6px;
+  background: var(--bg-muted);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 40px;
+}
+.room-progress-row.is-active .room-progress-bar-wrap {
+  background: color-mix(in oklab, var(--accent) 15%, var(--bg-elevated));
+}
+
+.room-progress-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 65%, var(--success)) 100%);
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+.room-progress-row.is-complete .room-progress-bar-fill {
+  background: var(--success);
+}
+
+.room-progress-count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: right;
+}
+.room-progress-row.is-complete .room-progress-count { color: var(--success); font-weight: 600; }
+
+@media (max-width: 700px) {
+  .room-progress-row {
+    grid-template-columns: 80px 1fr auto;
+    gap: 8px;
+    padding: 5px 6px;
+  }
+  .room-progress-label { font-size: 12px; }
+}
+
 .todo-item {
   border-radius: var(--radius-sm);
   padding: 8px 10px;

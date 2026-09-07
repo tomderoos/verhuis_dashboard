@@ -88,6 +88,23 @@ export default function TodoList() {
     return { rooms: [...set].sort((a, b) => a.localeCompare(b, 'nl')), hasEmpty };
   }, [state.todos]);
 
+  const progress = useMemo(() => {
+    const byRoom = new Map();
+    for (const t of state.todos) {
+      const key = t.room || '__empty__';
+      const bucket = byRoom.get(key) || { room: t.room || '', done: 0, total: 0 };
+      bucket.total += 1;
+      if (t.done) bucket.done += 1;
+      byRoom.set(key, bucket);
+    }
+    const rows = [...byRoom.values()].sort((a, b) => {
+      if (!a.room && b.room) return 1;
+      if (a.room && !b.room) return -1;
+      return a.room.localeCompare(b.room, 'nl');
+    });
+    return rows;
+  }, [state.todos]);
+
   const matchesFilter = (t) => {
     if (filter === 'all') return true;
     if (filter === '__empty__') return !t.room;
@@ -175,6 +192,35 @@ export default function TodoList() {
           Toevoegen
         </button>
       </form>
+
+      {progress.length > 1 && (
+        <div className="room-progress">
+          {progress.map((r) => {
+            const key = r.room || '__empty__';
+            const pct = r.total === 0 ? 0 : Math.round((r.done / r.total) * 100);
+            const active = filter === key;
+            const complete = r.done === r.total;
+            return (
+              <button
+                key={key}
+                className={`room-progress-row ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''}`}
+                onClick={() => setFilter(active ? 'all' : key)}
+                title={active ? 'Filter opheffen' : `Filter op ${r.room || 'zonder ruimte'}`}
+              >
+                <span className="room-progress-label">
+                  {r.room || 'Zonder ruimte'}
+                </span>
+                <span className="room-progress-bar-wrap">
+                  <span className="room-progress-bar-fill" style={{ width: `${pct}%` }} />
+                </span>
+                <span className="room-progress-count">
+                  {r.done}/{r.total}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {(roomList.rooms.length > 0 || roomList.hasEmpty) && (
         <div className="chip-row">
