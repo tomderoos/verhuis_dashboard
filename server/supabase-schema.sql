@@ -127,9 +127,12 @@ create table if not exists public.finance_categories (
   type text not null check (type in ('income','expense')),
   color text not null default '#64748b',
   sort_order double precision,
+  weekly_target numeric(12, 2),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.finance_categories add column if not exists weekly_target numeric(12, 2);
 
 create table if not exists public.finance_budget_entries (
   id uuid primary key default gen_random_uuid(),

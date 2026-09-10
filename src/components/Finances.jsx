@@ -25,6 +25,13 @@ function todayIso() {
 function isoMonth(date = new Date()) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
 }
+function isoDay(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+function parseIsoDay(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 function monthDate(monthKey) {
   const [y, m] = monthKey.split('-').map(Number);
   return new Date(y, m - 1, 1);
@@ -43,6 +50,70 @@ function monthsBetween(from, to) {
     cur = shiftMonth(cur, 1);
   }
   return list;
+}
+
+// Monday-based ISO week
+function startOfWeek(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dow = (d.getDay() + 6) % 7; // Mon=0, ..., Sun=6
+  d.setDate(d.getDate() - dow);
+  return d;
+}
+function endOfWeek(date) {
+  const s = startOfWeek(date);
+  s.setDate(s.getDate() + 6);
+  return s;
+}
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - dayNum + 3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const diff = d - firstThursday;
+  return 1 + Math.round(diff / (7 * 24 * 3600 * 1000));
+}
+
+function periodRange(period, anchorIso) {
+  const anchor = parseIsoDay(anchorIso);
+  if (period === 'day') return { start: isoDay(anchor), end: isoDay(anchor) };
+  if (period === 'week') return { start: isoDay(startOfWeek(anchor)), end: isoDay(endOfWeek(anchor)) };
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const first = new Date(y, m, 1);
+  const last = new Date(y, m + 1, 0);
+  return { start: isoDay(first), end: isoDay(last) };
+}
+function shiftPeriod(period, anchorIso, delta) {
+  const d = parseIsoDay(anchorIso);
+  if (period === 'day') d.setDate(d.getDate() + delta);
+  else if (period === 'week') d.setDate(d.getDate() + delta * 7);
+  else d.setMonth(d.getMonth() + delta);
+  return isoDay(d);
+}
+function periodLabel(period, anchorIso) {
+  const anchor = parseIsoDay(anchorIso);
+  if (period === 'day') {
+    return new Intl.DateTimeFormat('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }).format(anchor);
+  }
+  if (period === 'week') {
+    const s = startOfWeek(anchor);
+    const e = endOfWeek(anchor);
+    const fmtShort = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short' });
+    return `Week ${isoWeekNumber(anchor)} · ${fmtShort.format(s)} – ${fmtShort.format(e)}`;
+  }
+  return capitalize(MONTH_LONG.format(anchor));
+}
+function daysInPeriod(period, anchorIso) {
+  if (period === 'day') return 1;
+  if (period === 'week') return 7;
+  const { start, end } = periodRange('month', anchorIso);
+  return (parseIsoDay(end).getDate() - parseIsoDay(start).getDate()) + 1;
+}
+function daysSoFarInPeriod(period, anchorIso, todayIsoStr) {
+  const { start, end } = periodRange(period, anchorIso);
+  if (todayIsoStr < start) return 0;
+  if (todayIsoStr > end) return daysInPeriod(period, anchorIso);
+  return (parseIsoDay(todayIsoStr).getTime() - parseIsoDay(start).getTime()) / 86400000 + 1;
 }
 
 export default function Finances() {
@@ -148,6 +219,7 @@ export default function Finances() {
           month={month}
           categories={categories}
           transactions={transactions}
+          budgetMap={budgetMap}
         />
       )}
 
@@ -271,9 +343,20 @@ function StartBalanceInput({ value, onCommit }) {
 
 /* ============ Transactions ============ */
 
-function TransactionsView({ actions, month, categories, transactions }) {
+function TransactionsView({ actions, month, categories, transactions, budgetMap }) {
   const [filterType, setFilterType] = useState('all');
   const [filterCat, setFilterCat] = useState('all');
+  const [period, setPeriod] = useState('week');
+  const [anchor, setAnchor] = useState(() => {
+    const t = todayIso();
+    if (t.slice(0, 7) === month) return t;
+    return `${month}-15`;
+  });
+
+  useEffect(() => {
+    // Keep anchor within the outer selected month when the user changes it via nav.
+    if (anchor.slice(0, 7) !== month) setAnchor(`${month}-15`);
+  }, [month]);
 
   const [form, setForm] = useState(() => {
     const firstExpense = categories.find((c) => c.type === 'expense');
@@ -292,13 +375,14 @@ function TransactionsView({ actions, month, categories, transactions }) {
   }, [categories, form.categoryId]);
 
   const catById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
+  const range = useMemo(() => periodRange(period, anchor), [period, anchor]);
 
-  const monthTx = useMemo(() => {
-    let list = transactions.filter((t) => t.date.slice(0, 7) === month);
+  const periodTx = useMemo(() => {
+    let list = transactions.filter((t) => t.date >= range.start && t.date <= range.end);
     if (filterType !== 'all') list = list.filter((t) => catById[t.categoryId]?.type === filterType);
     if (filterCat !== 'all') list = list.filter((t) => t.categoryId === filterCat);
     return [...list].sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [transactions, month, filterType, filterCat, catById]);
+  }, [transactions, range, filterType, filterCat, catById]);
 
   const submit = (e) => {
     e.preventDefault();
@@ -310,19 +394,34 @@ function TransactionsView({ actions, month, categories, transactions }) {
       amount: Number(form.amount),
     });
     setForm({ ...form, description: '', amount: '' });
+    if (form.date > range.end || form.date < range.start) setAnchor(form.date);
   };
 
-  const monthTotals = useMemo(() => {
+  const periodTotals = useMemo(() => {
     let income = 0;
     let expense = 0;
-    for (const t of monthTx) {
+    for (const t of periodTx) {
       const cat = catById[t.categoryId];
       if (!cat) continue;
       if (cat.type === 'income') income += Number(t.amount) || 0;
       else expense += Number(t.amount) || 0;
     }
     return { income, expense, net: income - expense };
-  }, [monthTx, catById]);
+  }, [periodTx, catById]);
+
+  const progress = useMemo(
+    () => computePeriodProgress(categories, budgetMap, transactions, period, anchor),
+    [categories, budgetMap, transactions, period, anchor]
+  );
+  const daysTotal = daysInPeriod(period, anchor);
+  const daysSoFar = daysSoFarInPeriod(period, anchor, todayIso());
+  const timePct = Math.max(0, Math.min(100, Math.round((daysSoFar / daysTotal) * 100)));
+
+  const periodLabelStr = periodLabel(period, anchor);
+  const rangeLabel =
+    period === 'day' ? '' :
+    period === 'week' ? '7 dagen' :
+    `${daysTotal} dagen`;
 
   return (
     <>
@@ -356,17 +455,66 @@ function TransactionsView({ actions, month, categories, transactions }) {
         </form>
       </section>
 
-      <div className="fin-kpis fin-kpis-compact">
-        <MiniStat label="Inkomsten deze maand" amount={monthTotals.income} tone="income" />
-        <MiniStat label="Uitgaven deze maand" amount={monthTotals.expense} tone="expense" />
-        <MiniStat label="Netto" amount={monthTotals.net} tone={monthTotals.net >= 0 ? 'income' : 'expense'} />
-      </div>
+      <section className="card fin-period-card">
+        <div className="fin-period-head">
+          <div className="fin-period-nav">
+            <button className="btn ghost small" onClick={() => setAnchor(shiftPeriod(period, anchor, -1))} aria-label="Vorige">‹</button>
+            <div>
+              <div className="eyebrow">Periode</div>
+              <div className="fin-period-title">{periodLabelStr}</div>
+            </div>
+            <button className="btn ghost small" onClick={() => setAnchor(shiftPeriod(period, anchor, 1))} aria-label="Volgende">›</button>
+            <button className="btn small" onClick={() => setAnchor(todayIso())}>Vandaag</button>
+          </div>
+          <div className="chip-row">
+            <button className={`chip ${period === 'day' ? 'active' : ''}`} onClick={() => setPeriod('day')}>Dag</button>
+            <button className={`chip ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>Week</button>
+            <button className={`chip ${period === 'month' ? 'active' : ''}`} onClick={() => setPeriod('month')}>Maand</button>
+          </div>
+        </div>
+
+        <div className="fin-kpis fin-kpis-compact">
+          <MiniStat label={`Inkomsten ${period === 'day' ? 'vandaag' : period === 'week' ? 'deze week' : 'deze maand'}`} amount={periodTotals.income} tone="income" />
+          <MiniStat label={`Uitgaven ${period === 'day' ? 'vandaag' : period === 'week' ? 'deze week' : 'deze maand'}`} amount={periodTotals.expense} tone="expense" />
+          <MiniStat label="Netto" amount={periodTotals.net} tone={periodTotals.net >= 0 ? 'income' : 'expense'} />
+        </div>
+
+        {period !== 'day' && rangeLabel && (
+          <div className="fin-period-time">
+            <div className="fin-period-time-label">
+              <span>Tijd verstreken</span>
+              <span className="dim">{Math.min(Math.floor(daysSoFar), daysTotal)}/{daysTotal} dagen · {timePct}%</span>
+            </div>
+            <div className="fin-cat-bar-track">
+              <div className="fin-period-time-fill" style={{ width: `${timePct}%` }} />
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="card">
         <div className="card-head">
           <div>
-            <h2 className="card-title">Boekingen in {capitalize(MONTH_LONG.format(monthDate(month)))}</h2>
-            <div className="card-sub">{monthTx.length} regels</div>
+            <h2 className="card-title">Voortgang per categorie</h2>
+            <div className="card-sub">
+              Uitgaven vs. {period === 'week' ? 'weekdoel (of maand ÷ 4,33)' : period === 'day' ? 'dagdeel van je maandbegroting' : 'maandbegroting'} — na elke boeking zie je direct hoe je ervoor staat.
+            </div>
+          </div>
+        </div>
+        <PeriodProgressBars stats={progress.expenses} tone="expense" period={period} timePct={timePct} />
+        {progress.income.length > 0 && (
+          <>
+            <div className="fin-progress-divider">Inkomsten</div>
+            <PeriodProgressBars stats={progress.income} tone="income" period={period} timePct={timePct} />
+          </>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <div>
+            <h2 className="card-title">Boekingen — {periodLabelStr}</h2>
+            <div className="card-sub">{periodTx.length} regels</div>
           </div>
           <div className="chip-row">
             <button className={`chip ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')}>Alles</button>
@@ -382,13 +530,67 @@ function TransactionsView({ actions, month, categories, transactions }) {
         </div>
 
         <div className="fin-tx-list">
-          {monthTx.length === 0 && <div className="empty">Nog geen boekingen deze maand.</div>}
-          {monthTx.map((t) => (
+          {periodTx.length === 0 && <div className="empty">Nog geen boekingen in deze periode.</div>}
+          {periodTx.map((t) => (
             <TransactionRow key={t.id} tx={t} catById={catById} categories={categories} actions={actions} />
           ))}
         </div>
       </section>
     </>
+  );
+}
+
+function PeriodProgressBars({ stats, tone, period, timePct }) {
+  if (stats.length === 0) return <div className="empty">Geen categorieën met budget in deze periode.</div>;
+  const max = Math.max(1, ...stats.map((s) => Math.max(s.actual, s.target)));
+  return (
+    <div className="fin-cat-bars">
+      {stats.map((s) => {
+        const pct = s.target ? Math.round((s.actual / s.target) * 100) : null;
+        const over = tone === 'expense' && s.target && s.actual > s.target;
+        const onTrack = tone === 'expense' && s.target && pct != null && pct <= timePct + 5;
+        const behind = tone === 'expense' && s.target && pct != null && pct > timePct + 5 && !over;
+        const badgeClass = over ? 'over' : onTrack ? 'good' : behind ? 'short' : '';
+        return (
+          <div key={s.id} className="fin-cat-bar">
+            <div className="fin-cat-bar-head">
+              <span className="fin-cat-bar-name">
+                <span className="fin-cat-bar-dot" style={{ background: s.color }} aria-hidden />
+                {s.name}
+                {s.sourceLabel && <span className="fin-target-source"> · {s.sourceLabel}</span>}
+              </span>
+              <span className="fin-cat-bar-vals">
+                <strong>{EUR_PRECISE.format(s.actual)}</strong>
+                {s.target ? (
+                  <span className="dim"> / {EUR_PRECISE.format(s.target)}</span>
+                ) : (
+                  <span className="dim"> · geen doel</span>
+                )}
+                {pct != null && (
+                  <span className={`fin-cat-bar-pct ${badgeClass}`}>{pct}%</span>
+                )}
+              </span>
+            </div>
+            <div className="fin-cat-bar-track">
+              {period !== 'day' && s.target > 0 && (
+                <div className="fin-cat-bar-time" style={{ left: `${(s.target / max) * timePct}%` }} title={`Tijd verstreken: ${timePct}%`} />
+              )}
+              <div className="fin-cat-bar-fill-budget" style={{ width: `${(s.target / max) * 100}%`, background: s.color }} />
+              <div className={`fin-cat-bar-fill-actual ${over ? 'is-over' : ''}`} style={{ width: `${Math.min(s.actual, max) / max * 100}%`, background: s.color }} />
+            </div>
+            {s.target > 0 && (
+              <div className="fin-cat-bar-sub">
+                {tone === 'expense' ? (
+                  <>Nog {EUR_PRECISE.format(Math.max(0, s.target - s.actual))} te besteden</>
+                ) : (
+                  <>Nog {EUR_PRECISE.format(Math.max(0, s.target - s.actual))} te ontvangen</>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -484,6 +686,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
           <thead>
             <tr>
               <th className="fin-budget-cat-head">Categorie</th>
+              <th className="fin-budget-week-head" title="Weekdoel — bijvoorbeeld voor boodschappen">Week</th>
               {monthsWindow.map((m) => (
                 <th key={m} className={m === month ? 'is-current' : ''}>
                   {capitalize(MONTH_SHORT.format(monthDate(m)))} '{m.slice(2, 4)}
@@ -494,7 +697,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
             </tr>
           </thead>
           <tbody>
-            <tr className="fin-budget-section"><td colSpan={monthsWindow.length + 3}>Inkomsten</td></tr>
+            <tr className="fin-budget-section"><td colSpan={monthsWindow.length + 4}>Inkomsten</td></tr>
             {income.map((cat) => (
               <BudgetRow
                 key={cat.id}
@@ -506,7 +709,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
               />
             ))}
             <tr className="fin-budget-add-row">
-              <td colSpan={monthsWindow.length + 3}>
+              <td colSpan={monthsWindow.length + 4}>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -522,7 +725,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
               </td>
             </tr>
 
-            <tr className="fin-budget-section"><td colSpan={monthsWindow.length + 3}>Uitgaven</td></tr>
+            <tr className="fin-budget-section"><td colSpan={monthsWindow.length + 4}>Uitgaven</td></tr>
             {expenses.map((cat) => (
               <BudgetRow
                 key={cat.id}
@@ -534,7 +737,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
               />
             ))}
             <tr className="fin-budget-add-row">
-              <td colSpan={monthsWindow.length + 3}>
+              <td colSpan={monthsWindow.length + 4}>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -552,6 +755,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
 
             <tr className="fin-budget-totals">
               <td>Totaal inkomsten</td>
+              <td></td>
               {monthsWindow.map((m) => (
                 <td key={m}>{EUR.format(sumOf(income, budgetMap, m))}</td>
               ))}
@@ -560,6 +764,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
             </tr>
             <tr className="fin-budget-totals">
               <td>Totaal uitgaven</td>
+              <td></td>
               {monthsWindow.map((m) => (
                 <td key={m}>{EUR.format(sumOf(expenses, budgetMap, m))}</td>
               ))}
@@ -568,6 +773,7 @@ function BudgetView({ actions, month, setMonth, rangeMonths, categories, budgetM
             </tr>
             <tr className="fin-budget-totals is-net">
               <td>Netto (over)</td>
+              <td></td>
               {monthsWindow.map((m) => {
                 const v = sumOf(income, budgetMap, m) - sumOf(expenses, budgetMap, m);
                 return <td key={m} className={v < 0 ? 'neg' : 'pos'}>{EUR.format(v)}</td>;
@@ -601,6 +807,12 @@ function BudgetRow({ cat, budget, months, current, actions }) {
             if (name.trim() && name !== cat.name) actions.renameFinanceCategory(cat.id, name.trim());
             else if (!name.trim()) setName(cat.name);
           }}
+        />
+      </td>
+      <td className="fin-budget-week">
+        <BudgetCell
+          value={cat.weeklyTarget}
+          onCommit={(v) => actions.setFinanceCategoryWeeklyTarget(cat.id, v)}
         />
       </td>
       {months.map((m) => (
@@ -875,6 +1087,60 @@ function computeMonthlyTotals(categories, budgetMap, transactions, months) {
     }
     return { month: m, incomeBudget, expenseBudget, incomeActual, expenseActual };
   });
+}
+
+function computePeriodProgress(categories, budgetMap, transactions, period, anchorIso) {
+  const { start, end } = periodRange(period, anchorIso);
+  const monthKey = anchorIso.slice(0, 7);
+  const daysInMonth = daysInPeriod('month', anchorIso);
+
+  const perCat = new Map();
+  for (const c of categories) {
+    const monthBudget = Number((budgetMap[c.id] || {})[monthKey]) || 0;
+    let target = 0;
+    let sourceLabel = null;
+    if (period === 'month') {
+      target = monthBudget;
+      sourceLabel = 'maand';
+    } else if (period === 'week') {
+      if (c.weeklyTarget != null && c.weeklyTarget > 0) {
+        target = Number(c.weeklyTarget) || 0;
+        sourceLabel = 'weekdoel';
+      } else if (monthBudget > 0) {
+        target = monthBudget / (daysInMonth / 7);
+        sourceLabel = 'maand ÷ weken';
+      }
+    } else {
+      // day
+      if (c.weeklyTarget != null && c.weeklyTarget > 0) {
+        target = Number(c.weeklyTarget) / 7;
+        sourceLabel = 'weekdoel ÷ 7';
+      } else if (monthBudget > 0) {
+        target = monthBudget / daysInMonth;
+        sourceLabel = 'maand ÷ dagen';
+      }
+    }
+    perCat.set(c.id, {
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      type: c.type,
+      target,
+      actual: 0,
+      sourceLabel,
+    });
+  }
+  for (const t of transactions) {
+    if (t.date < start || t.date > end) continue;
+    const s = perCat.get(t.categoryId);
+    if (s) s.actual += Number(t.amount) || 0;
+  }
+  const all = [...perCat.values()];
+  const sort = (a, b) => (b.actual + b.target) - (a.actual + a.target);
+  return {
+    income: all.filter((s) => s.type === 'income' && (s.actual || s.target)).sort(sort),
+    expenses: all.filter((s) => s.type === 'expense' && (s.actual || s.target)).sort(sort),
+  };
 }
 
 function computeCategoryStats(categories, budgetMap, transactions, month) {

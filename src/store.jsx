@@ -199,6 +199,7 @@ function financeCategoryFromRow(row) {
     type: row.type === 'income' ? 'income' : 'expense',
     color: row.color || '#64748b',
     sortOrder: row.sort_order == null ? 0 : Number(row.sort_order),
+    weeklyTarget: row.weekly_target == null ? null : Number(row.weekly_target),
   };
 }
 
@@ -736,6 +737,27 @@ function makeActions(setState, sessionRef) {
         color: palette[paletteIdx % palette.length],
         sort_order: sortOrder,
       });
+      if (error) reportWriteError(setState, error);
+    },
+
+    setFinanceCategoryWeeklyTarget: async (id, amount) => {
+      const isEmpty = amount === undefined || amount === null || amount === '' || Number.isNaN(Number(amount));
+      const value = isEmpty ? null : Number(amount);
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          categories: s.categories.map((c) => (c.id === id ? { ...c, weeklyTarget: value } : c)),
+        }));
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        categories: s.categories.map((c) => (c.id === id ? { ...c, weeklyTarget: value } : c)),
+      }));
+      const { error } = await supabase
+        .from('finance_categories')
+        .update({ weekly_target: value })
+        .eq('id', id);
       if (error) reportWriteError(setState, error);
     },
 

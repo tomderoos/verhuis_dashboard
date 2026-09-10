@@ -1952,6 +1952,78 @@ input, select, textarea {
   flex: 1;
 }
 
+/* Period toggle in transactions */
+.fin-period-card { gap: 14px; }
+.fin-period-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.fin-period-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fin-period-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.fin-period-time { display: flex; flex-direction: column; gap: 6px; }
+.fin-period-time-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.fin-period-time-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--accent);
+  opacity: 0.35;
+  border-radius: 6px;
+}
+
+.fin-target-source {
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.fin-cat-bar-track { position: relative; }
+.fin-cat-bar-time {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.5;
+  z-index: 3;
+  pointer-events: none;
+}
+.fin-cat-bar-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.fin-progress-divider {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.fin-budget-week-head { text-align: right; }
+.fin-budget-week { text-align: right; }
+
 /* Hero: extra tab shouldn't overflow */
 .hero .top-nav {
   flex-wrap: wrap;
