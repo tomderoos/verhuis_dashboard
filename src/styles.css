@@ -1952,6 +1952,13 @@ input, select, textarea {
   flex: 1;
 }
 
+.fin-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 /* Period toggle in transactions */
 .fin-period-card { gap: 14px; }
 .fin-period-head {
