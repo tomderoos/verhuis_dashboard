@@ -5,13 +5,15 @@ import Timeline from './components/Timeline.jsx';
 import Weather from './components/Weather.jsx';
 import Expenses from './components/Expenses.jsx';
 import SaleItems from './components/SaleItems.jsx';
+import Finances from './components/Finances.jsx';
 import ServerControl from './components/ServerControl.jsx';
 import AuthGate from './components/AuthGate.jsx';
 import { useStore } from './store.jsx';
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'uitgaven', label: 'Uitgaven', icon: '💰' },
+  { id: 'financien', label: 'Financiën', icon: '💶' },
+  { id: 'uitgaven', label: 'Verbouwing', icon: '💰' },
   { id: 'verkopen', label: 'Verkopen', icon: '🏷️' },
   { id: 'server', label: 'Server', icon: '⚙️' },
 ];
@@ -129,6 +131,8 @@ function Shell() {
           </div>
         </>
       )}
+
+      {route === 'financien' && <Finances />}
 
       {route === 'uitgaven' && <Expenses />}
 
