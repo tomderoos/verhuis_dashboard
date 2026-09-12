@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Countdown from './components/Countdown.jsx';
 import TodoList from './components/TodoList.jsx';
 import Timeline from './components/Timeline.jsx';
+import Agenda from './components/Agenda.jsx';
 import Weather from './components/Weather.jsx';
 import Expenses from './components/Expenses.jsx';
 import SaleItems from './components/SaleItems.jsx';
@@ -125,9 +126,10 @@ function Shell() {
             <Countdown stateKey="keyDate" eyebrow="Sleutels Bloemheuvellaan 51" />
           </div>
           <Weather />
+          <TodoList />
           <div className="grid-2">
-            <TodoList />
             <Timeline />
+            <Agenda />
           </div>
         </>
       )}

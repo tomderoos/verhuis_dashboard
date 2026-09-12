@@ -354,6 +354,10 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
         ) : (
           <AddRoomButton onSet={(next) => actions.updateTodo(todo.id, { room: next })} />
         )}
+        <DateTag
+          date={todo.plannedDate}
+          onChange={(next) => actions.updateTodo(todo.id, { plannedDate: next || null })}
+        />
         <button
           className={`btn tiny ${todo.comment ? 'accent' : 'ghost'}`}
           onClick={onExpand}
@@ -420,6 +424,50 @@ function RoomTag({ room, onChange }) {
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit();
         if (e.key === 'Escape') setEditing(false);
+      }}
+    />
+  );
+}
+
+const DATE_SHORT = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short' });
+
+function DateTag({ date, onChange }) {
+  const [editing, setEditing] = useState(false);
+  if (!editing) {
+    if (!date) {
+      return (
+        <button
+          type="button"
+          className="date-tag date-tag-empty"
+          title="Plan deze taak in de agenda"
+          onClick={() => setEditing(true)}
+        >
+          📅
+        </button>
+      );
+    }
+    const label = DATE_SHORT.format(new Date(date + 'T00:00'));
+    return (
+      <button
+        type="button"
+        className="date-tag"
+        title={`Gepland: ${label} — klik om te wijzigen`}
+        onClick={() => setEditing(true)}
+      >
+        📅 {label}
+      </button>
+    );
+  }
+  return (
+    <input
+      type="date"
+      className="input tiny date-edit"
+      value={date || ''}
+      autoFocus
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === 'Escape') setEditing(false);
       }}
     />
   );

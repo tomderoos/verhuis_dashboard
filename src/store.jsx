@@ -152,6 +152,7 @@ function todoFromRow(row) {
     done: !!row.done,
     comment: row.comment || '',
     room: row.room || '',
+    plannedDate: row.planned_date || null,
     createdAt,
     sortOrder: row.sort_order == null ? fallbackSort : Number(row.sort_order),
   };
@@ -480,6 +481,7 @@ function makeActions(setState, sessionRef) {
       if ('done' in patch) row.done = patch.done;
       if ('comment' in patch) row.comment = patch.comment;
       if ('room' in patch) row.room = patch.room;
+      if ('plannedDate' in patch) row.planned_date = patch.plannedDate;
       const { error } = await supabase.from('todos').update(row).eq('id', id);
       if (error) reportWriteError(setState, error);
     },
