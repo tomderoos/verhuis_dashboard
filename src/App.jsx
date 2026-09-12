@@ -1,4 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import Countdown from './components/Countdown.jsx';
 import TodoList from './components/TodoList.jsx';
 import Timeline from './components/Timeline.jsx';
@@ -9,7 +24,36 @@ import SaleItems from './components/SaleItems.jsx';
 import Finances from './components/Finances.jsx';
 import ServerControl from './components/ServerControl.jsx';
 import AuthGate from './components/AuthGate.jsx';
+import DashSection from './components/DashSection.jsx';
 import { useStore } from './store.jsx';
+
+const LAYOUT_KEY = 'huis-dashboard.layout.v1';
+const DEFAULT_SECTIONS = ['todos', 'timeline', 'agenda'];
+const SECTION_META = {
+  todos: { title: 'To do — huidige huis' },
+  timeline: { title: 'Timeline — klussen & bezichtigingen' },
+  agenda: { title: 'Agenda — plan je klussen' },
+};
+
+function loadLayout() {
+  if (typeof window === 'undefined') return { order: DEFAULT_SECTIONS, collapsed: {} };
+  try {
+    const raw = window.localStorage.getItem(LAYOUT_KEY);
+    if (!raw) return { order: DEFAULT_SECTIONS, collapsed: {} };
+    const parsed = JSON.parse(raw);
+    const order = Array.isArray(parsed.order)
+      ? [...parsed.order.filter((id) => DEFAULT_SECTIONS.includes(id)), ...DEFAULT_SECTIONS.filter((id) => !parsed.order.includes(id))]
+      : DEFAULT_SECTIONS;
+    return { order, collapsed: parsed.collapsed || {} };
+  } catch {
+    return { order: DEFAULT_SECTIONS, collapsed: {} };
+  }
+}
+function saveLayout(layout) {
+  try {
+    window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+  } catch {}
+}
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
@@ -117,22 +161,7 @@ function Shell() {
         </div>
       )}
 
-      {route === 'dashboard' && (
-        <>
-          <div className="countdown-row countdown-row-4">
-            <Countdown stateKey="salePrepDate" eyebrow="Klaar voor verkoop" />
-            <Countdown stateKey="kloversdonkKeyDate" eyebrow="Overdracht Kloversdonk 213" />
-            <Countdown stateKey="moveDate" eyebrow="Verhuisdatum" />
-            <Countdown stateKey="keyDate" eyebrow="Sleutels Bloemheuvellaan 51" />
-          </div>
-          <Weather />
-          <TodoList />
-          <div className="grid-2">
-            <Timeline />
-            <Agenda />
-          </div>
-        </>
-      )}
+      {route === 'dashboard' && <DashboardBody />}
 
       {route === 'financien' && <Finances />}
 
@@ -146,5 +175,68 @@ function Shell() {
         Data synchroniseert live via Supabase · dev-server via <code>npm run control</code>
       </footer>
     </div>
+  );
+}
+
+function DashboardBody() {
+  const [layout, setLayout] = useState(loadLayout);
+
+  useEffect(() => {
+    saveLayout(layout);
+  }, [layout]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const toggle = (id) =>
+    setLayout((l) => ({ ...l, collapsed: { ...l.collapsed, [id]: !l.collapsed[id] } }));
+
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    setLayout((l) => {
+      const from = l.order.indexOf(active.id);
+      const to = l.order.indexOf(over.id);
+      if (from < 0 || to < 0) return l;
+      return { ...l, order: arrayMove(l.order, from, to) };
+    });
+  };
+
+  const renderSection = (id) => {
+    if (id === 'todos') return <TodoList />;
+    if (id === 'timeline') return <Timeline />;
+    if (id === 'agenda') return <Agenda />;
+    return null;
+  };
+
+  return (
+    <>
+      <div className="countdown-row countdown-row-4">
+        <Countdown stateKey="salePrepDate" eyebrow="Klaar voor verkoop" />
+        <Countdown stateKey="kloversdonkKeyDate" eyebrow="Overdracht Kloversdonk 213" />
+        <Countdown stateKey="moveDate" eyebrow="Verhuisdatum" />
+        <Countdown stateKey="keyDate" eyebrow="Sleutels Bloemheuvellaan 51" />
+      </div>
+      <Weather />
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={layout.order} strategy={verticalListSortingStrategy}>
+          <div className="dash-sections">
+            {layout.order.map((id) => (
+              <DashSection
+                key={id}
+                id={id}
+                title={SECTION_META[id]?.title || id}
+                collapsed={!!layout.collapsed[id]}
+                onToggle={() => toggle(id)}
+              >
+                {renderSection(id)}
+              </DashSection>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </>
   );
 }
