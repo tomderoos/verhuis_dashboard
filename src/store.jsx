@@ -154,6 +154,7 @@ function todoFromRow(row) {
     room: row.room || '',
     plannedDate: row.planned_date || null,
     size: row.size || null,
+    assignee: row.assignee || '',
     createdAt,
     sortOrder: row.sort_order == null ? fallbackSort : Number(row.sort_order),
   };
@@ -484,6 +485,7 @@ function makeActions(setState, sessionRef) {
       if ('room' in patch) row.room = patch.room;
       if ('plannedDate' in patch) row.planned_date = patch.plannedDate;
       if ('size' in patch) row.size = patch.size;
+      if ('assignee' in patch) row.assignee = patch.assignee || '';
       const { error } = await supabase.from('todos').update(row).eq('id', id);
       if (error) reportWriteError(setState, error);
     },

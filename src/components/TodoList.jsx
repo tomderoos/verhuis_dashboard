@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { useStore } from '../store.jsx';
 
@@ -64,6 +64,16 @@ function sizeMeta(id) {
   return SIZES.find((s) => s.id === id) || null;
 }
 
+const PERSON_SUGGESTIONS = ['Tom', 'Rinske', 'Samen', 'Lotte', 'Anne'];
+
+const PERSON_COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#0ea5e9', '#8b5cf6', '#f43f5e'];
+function personColor(name) {
+  if (!name) return '#94a3b8';
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return PERSON_COLORS[h % PERSON_COLORS.length];
+}
+
 const ROOM_SUGGESTIONS = [
   'Woonkamer',
   'Keuken',
@@ -85,6 +95,7 @@ export default function TodoList() {
   const [room, setRoom] = useState('');
   const [filter, setFilter] = useState('all');
   const [sizeFilter, setSizeFilter] = useState('all');
+  const [personFilter, setPersonFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
 
   const roomList = useMemo(() => {
@@ -125,7 +136,23 @@ export default function TodoList() {
     if (sizeFilter === '__empty__') return !t.size;
     return t.size === sizeFilter;
   };
-  const matchesFilter = (t) => matchesRoom(t) && matchesSize(t);
+  const matchesPerson = (t) => {
+    if (personFilter === 'all') return true;
+    if (personFilter === '__empty__') return !t.assignee;
+    return t.assignee === personFilter;
+  };
+  const matchesFilter = (t) => matchesRoom(t) && matchesSize(t) && matchesPerson(t);
+
+  const personList = useMemo(() => {
+    const set = new Set();
+    let hasEmpty = false;
+    for (const t of state.todos) {
+      if (t.done) continue;
+      if (t.assignee) set.add(t.assignee);
+      else hasEmpty = true;
+    }
+    return { persons: [...set].sort((a, b) => a.localeCompare(b, 'nl')), hasEmpty };
+  }, [state.todos]);
 
   const sizeCounts = useMemo(() => {
     const counts = { klein: 0, groot: 0, __empty__: 0 };
@@ -143,7 +170,7 @@ export default function TodoList() {
     const doneList = state.todos.filter((t) => t.done).filter(matchesFilter).slice().sort(sortByOrder);
     return { open: openList, done: doneList };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.todos, filter, sizeFilter]);
+  }, [state.todos, filter, sizeFilter, personFilter]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -214,6 +241,11 @@ export default function TodoList() {
             <option key={r} value={r} />
           ))}
         </datalist>
+        <datalist id="person-suggestions">
+          {PERSON_SUGGESTIONS.map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
         <button className="btn primary" type="submit">
           Toevoegen
         </button>
@@ -271,6 +303,36 @@ export default function TodoList() {
               onClick={() => setFilter('__empty__')}
             >
               Zonder ruimte
+            </button>
+          )}
+        </div>
+      )}
+
+      {(personList.persons.length > 0 || personList.hasEmpty) && (
+        <div className="chip-row">
+          <span className="chip-row-label">Wie:</span>
+          <button
+            className={`chip ${personFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setPersonFilter('all')}
+          >
+            Alles
+          </button>
+          {personList.persons.map((p) => (
+            <button
+              key={p}
+              className={`chip ${personFilter === p ? 'active' : ''}`}
+              onClick={() => setPersonFilter(p)}
+              style={personFilter === p ? undefined : { borderColor: personColor(p), color: personColor(p) }}
+            >
+              {p}
+            </button>
+          ))}
+          {personList.hasEmpty && (
+            <button
+              className={`chip ${personFilter === '__empty__' ? 'active' : ''}`}
+              onClick={() => setPersonFilter('__empty__')}
+            >
+              Onbepaald
             </button>
           )}
         </div>
@@ -409,6 +471,10 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
         ) : (
           <AddRoomButton onSet={(next) => actions.updateTodo(todo.id, { room: next })} />
         )}
+        <PersonTag
+          person={todo.assignee}
+          onChange={(next) => actions.updateTodo(todo.id, { assignee: next })}
+        />
         <SizeTag
           size={todo.size}
           onChange={(next) => actions.updateTodo(todo.id, { size: next })}
@@ -483,6 +549,60 @@ function RoomTag({ room, onChange }) {
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit();
         if (e.key === 'Escape') setEditing(false);
+      }}
+    />
+  );
+}
+
+function PersonTag({ person, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(person || '');
+  useEffect(() => setDraft(person || ''), [person]);
+
+  if (!editing) {
+    if (!person) {
+      return (
+        <button
+          type="button"
+          className="person-tag person-tag-empty"
+          title="Wie doet deze klus?"
+          onClick={() => setEditing(true)}
+        >
+          👤 wie?
+        </button>
+      );
+    }
+    const color = personColor(person);
+    return (
+      <button
+        type="button"
+        className="person-tag"
+        style={{ borderColor: color, color }}
+        title={`Toegewezen aan ${person} — klik om te wijzigen`}
+        onClick={() => setEditing(true)}
+      >
+        <span className="person-dot" style={{ background: color }} aria-hidden />
+        {person}
+      </button>
+    );
+  }
+
+  const commit = () => {
+    onChange(draft.trim());
+    setEditing(false);
+  };
+  return (
+    <input
+      className="input tiny person-edit"
+      list="person-suggestions"
+      value={draft}
+      autoFocus
+      placeholder="Naam"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') { setDraft(person || ''); setEditing(false); }
       }}
     />
   );

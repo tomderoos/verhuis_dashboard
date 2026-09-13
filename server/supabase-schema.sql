@@ -15,6 +15,7 @@ alter table public.todos add column if not exists sort_order double precision;
 alter table public.todos add column if not exists room text not null default '';
 alter table public.todos add column if not exists planned_date date;
 alter table public.todos add column if not exists size text;
+alter table public.todos add column if not exists assignee text not null default '';
 update public.todos set sort_order = extract(epoch from created_at) where sort_order is null;
 
 create table if not exists public.events (
