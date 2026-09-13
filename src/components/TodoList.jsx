@@ -55,6 +55,15 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+const SIZES = [
+  { id: 'klein', label: 'Klein', icon: '🔹', color: '#0ea5e9' },
+  { id: 'groot', label: 'Groot', icon: '🔶', color: '#f97316' },
+];
+
+function sizeMeta(id) {
+  return SIZES.find((s) => s.id === id) || null;
+}
+
 const ROOM_SUGGESTIONS = [
   'Woonkamer',
   'Keuken',
@@ -75,6 +84,7 @@ export default function TodoList() {
   const [text, setText] = useState('');
   const [room, setRoom] = useState('');
   const [filter, setFilter] = useState('all');
+  const [sizeFilter, setSizeFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
 
   const roomList = useMemo(() => {
@@ -105,11 +115,27 @@ export default function TodoList() {
     return rows;
   }, [state.todos]);
 
-  const matchesFilter = (t) => {
+  const matchesRoom = (t) => {
     if (filter === 'all') return true;
     if (filter === '__empty__') return !t.room;
     return t.room === filter;
   };
+  const matchesSize = (t) => {
+    if (sizeFilter === 'all') return true;
+    if (sizeFilter === '__empty__') return !t.size;
+    return t.size === sizeFilter;
+  };
+  const matchesFilter = (t) => matchesRoom(t) && matchesSize(t);
+
+  const sizeCounts = useMemo(() => {
+    const counts = { klein: 0, groot: 0, __empty__: 0 };
+    for (const t of state.todos) {
+      if (t.done) continue;
+      if (t.size === 'klein' || t.size === 'groot') counts[t.size] += 1;
+      else counts.__empty__ += 1;
+    }
+    return counts;
+  }, [state.todos]);
 
   const { open, done } = useMemo(() => {
     const sortByOrder = (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
@@ -117,7 +143,7 @@ export default function TodoList() {
     const doneList = state.todos.filter((t) => t.done).filter(matchesFilter).slice().sort(sortByOrder);
     return { open: openList, done: doneList };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.todos, filter]);
+  }, [state.todos, filter, sizeFilter]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -250,6 +276,35 @@ export default function TodoList() {
         </div>
       )}
 
+      {(sizeCounts.klein > 0 || sizeCounts.groot > 0 || sizeCounts.__empty__ > 0) && (
+        <div className="chip-row">
+          <span className="chip-row-label">Klus:</span>
+          <button
+            className={`chip ${sizeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setSizeFilter('all')}
+          >
+            Alles
+          </button>
+          {SIZES.filter((s) => sizeCounts[s.id] > 0).map((s) => (
+            <button
+              key={s.id}
+              className={`chip ${sizeFilter === s.id ? 'active' : ''}`}
+              onClick={() => setSizeFilter(s.id)}
+            >
+              <span aria-hidden>{s.icon}</span> {s.label} ({sizeCounts[s.id]})
+            </button>
+          ))}
+          {sizeCounts.__empty__ > 0 && (
+            <button
+              className={`chip ${sizeFilter === '__empty__' ? 'active' : ''}`}
+              onClick={() => setSizeFilter('__empty__')}
+            >
+              Onbepaald ({sizeCounts.__empty__})
+            </button>
+          )}
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={open.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <ul className="todo-list">
@@ -354,6 +409,10 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
         ) : (
           <AddRoomButton onSet={(next) => actions.updateTodo(todo.id, { room: next })} />
         )}
+        <SizeTag
+          size={todo.size}
+          onChange={(next) => actions.updateTodo(todo.id, { size: next })}
+        />
         <DateTag
           date={todo.plannedDate}
           onChange={(next) => actions.updateTodo(todo.id, { plannedDate: next || null })}
@@ -426,6 +485,26 @@ function RoomTag({ room, onChange }) {
         if (e.key === 'Escape') setEditing(false);
       }}
     />
+  );
+}
+
+function SizeTag({ size, onChange }) {
+  const meta = sizeMeta(size);
+  const nextSize = size === 'klein' ? 'groot' : size === 'groot' ? null : 'klein';
+  const label = meta ? meta.label : 'klus';
+  const title = meta
+    ? `${meta.label} klus — klik om te wisselen (${size === 'klein' ? 'wordt Groot' : 'wordt Onbepaald'})`
+    : 'Zet klasse: klik voor Klein, nogmaals voor Groot';
+  return (
+    <button
+      type="button"
+      className={`size-tag ${meta ? `is-${meta.id}` : 'is-empty'}`}
+      style={meta ? { borderColor: meta.color, color: meta.color } : undefined}
+      onClick={() => onChange(nextSize)}
+      title={title}
+    >
+      {meta ? <><span aria-hidden>{meta.icon}</span> {label}</> : '⚪ klus'}
+    </button>
   );
 }
 

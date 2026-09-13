@@ -153,6 +153,7 @@ function todoFromRow(row) {
     comment: row.comment || '',
     room: row.room || '',
     plannedDate: row.planned_date || null,
+    size: row.size || null,
     createdAt,
     sortOrder: row.sort_order == null ? fallbackSort : Number(row.sort_order),
   };
@@ -482,6 +483,7 @@ function makeActions(setState, sessionRef) {
       if ('comment' in patch) row.comment = patch.comment;
       if ('room' in patch) row.room = patch.room;
       if ('plannedDate' in patch) row.planned_date = patch.plannedDate;
+      if ('size' in patch) row.size = patch.size;
       const { error } = await supabase.from('todos').update(row).eq('id', id);
       if (error) reportWriteError(setState, error);
     },
