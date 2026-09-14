@@ -2106,6 +2106,13 @@ input, select, textarea {
   display: inline-block;
 }
 .agenda-dot.is-done { opacity: 0.5; }
+.agenda-ics-marker {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 1px;
+  display: inline-block;
+}
 .agenda-more {
   font-size: 10px;
   color: var(--text-muted);

@@ -140,17 +140,18 @@ export default function Agenda() {
                 {items.length > 0 && (
                   <div className="agenda-day-items">
                     {items.slice(0, 4).map((it, i) => {
+                      if (it.kind === 'ics') {
+                        const title = `${it.ref.summary}${it.ref.timeLabel ? ` (${it.ref.timeLabel})` : ''}`;
+                        return <span key={i} className="agenda-ics-marker" title={title} />;
+                      }
                       let color;
                       let title;
                       if (it.kind === 'todo') {
                         color = it.ref.done ? 'var(--success)' : 'var(--accent)';
                         title = it.ref.text;
-                      } else if (it.kind === 'event') {
+                      } else {
                         color = (EVENT_META[it.ref.type] || EVENT_META.overig).color;
                         title = it.ref.title;
-                      } else {
-                        color = it.ref.color || 'var(--text-muted)';
-                        title = `${it.ref.summary}${it.ref.timeLabel ? ` (${it.ref.timeLabel})` : ''}`;
                       }
                       return (
                         <span
