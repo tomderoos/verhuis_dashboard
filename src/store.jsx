@@ -1,11 +1,24 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabaseClient.js';
 import { BUDGET_INCOME, BUDGET_EXPENSES } from './data/financeSeed.js';
+import { parseIcs } from './utils/ics.js';
 
 export const KEY_HANDOVER_DATE = '2026-12-18T10:00:00';
 export const COUNTDOWN_KEYS = ['keyDate', 'moveDate', 'kloversdonkKeyDate', 'salePrepDate'];
 export const FINANCE_START_BALANCE_KEY = 'financeStartBalance';
-const SETTINGS_KEYS = [...COUNTDOWN_KEYS, FINANCE_START_BALANCE_KEY];
+export const CALENDAR_FEEDS_KEY = 'calendarFeeds';
+const SETTINGS_KEYS = [...COUNTDOWN_KEYS, FINANCE_START_BALANCE_KEY, CALENDAR_FEEDS_KEY];
+
+const FEED_COLORS = ['#6366f1', '#ec4899', '#f97316', '#14b8a6', '#0ea5e9', '#a855f7'];
+
+const DEFAULT_CALENDAR_FEEDS = [
+  {
+    id: 'sdb-planning',
+    name: 'SDB Planning',
+    url: 'https://zga.sdbplanning.nl/ical/a440d761-7197-4bdb-b1a6-f17a8b608d0c/calendar.ics',
+    color: '#6366f1',
+  },
+];
 
 const INCOME_COLORS = ['#10b981', '#14b8a6', '#22c55e', '#84cc16', '#06b6d4', '#0ea5e9', '#3b82f6', '#8b5cf6'];
 const EXPENSE_COLORS = [
@@ -67,6 +80,7 @@ const DEFAULT_LOCAL = {
   saleItems: [
     { id: uid(), title: 'Oude eettafel', platform: 'marktplaats', url: '', askingPrice: 75, sold: false, soldPrice: null, notes: '' },
   ],
+  calendarFeeds: DEFAULT_CALENDAR_FEEDS.map((f) => ({ ...f })),
   ...buildLocalFinance(),
 };
 
@@ -83,6 +97,9 @@ const DEFAULT_STATE = {
   categories: [],
   budget: {},
   transactions: [],
+  calendarFeeds: [],
+  icsEvents: [],
+  icsError: null,
   loading: true,
   syncError: null,
   localMode: false,
@@ -114,6 +131,20 @@ function saveLocal(state) {
   try {
     window.localStorage.setItem(LOCAL_KEY, JSON.stringify(persistable));
   } catch {}
+}
+
+function coerceSettingValue(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v;
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'object') {
+    // Legacy wrap: {"raw": <primitive>} — used when only strings/numbers went in.
+    if ('raw' in v && (v.raw === null || ['string', 'number', 'boolean'].includes(typeof v.raw))) {
+      return v.raw;
+    }
+    return v;
+  }
+  return null;
 }
 
 function reportWriteError(setState, error) {
@@ -251,7 +282,15 @@ export function StoreProvider({ children }) {
     if (!session) {
       if (IS_DEV) {
         const local = loadLocal();
-        setState({ ...local, loading: false, syncError: null, localMode: true });
+        setState({
+          ...DEFAULT_STATE,
+          ...local,
+          icsEvents: [],
+          icsError: null,
+          loading: false,
+          syncError: null,
+          localMode: true,
+        });
       } else {
         setState({ ...DEFAULT_STATE, loading: false });
       }
@@ -296,8 +335,21 @@ export function StoreProvider({ children }) {
 
       const settingsMap = {};
       for (const row of asRows(settings)) {
-        const v = row.value;
-        settingsMap[row.key] = typeof v === 'string' ? v : typeof v === 'number' ? v : v?.raw ?? null;
+        settingsMap[row.key] = coerceSettingValue(row.value);
+      }
+
+      // Seed the default calendar feeds once, so the SDB Planning agenda shows up
+      // out of the box. If the user later removes them, the empty array is stored
+      // and this seed step is skipped.
+      if (settingsMap[CALENDAR_FEEDS_KEY] === undefined) {
+        const seed = DEFAULT_CALENDAR_FEEDS.map((f) => ({ ...f }));
+        settingsMap[CALENDAR_FEEDS_KEY] = seed;
+        supabase
+          .from('settings')
+          .upsert({ key: CALENDAR_FEEDS_KEY, value: seed }, { onConflict: 'key' })
+          .then(({ error }) => {
+            if (error) console.error('Kon standaard-agenda-feeds niet seedn', error);
+          });
       }
 
       const categories = asRows(financeCategories).map(financeCategoryFromRow);
@@ -314,7 +366,7 @@ export function StoreProvider({ children }) {
         : null;
       if (failures.length) console.error('Supabase load errors', failures);
 
-      setState({
+      setState((s) => ({
         keyDate: settingsMap.keyDate ?? KEY_HANDOVER_DATE,
         moveDate: settingsMap.moveDate ?? null,
         kloversdonkKeyDate: settingsMap.kloversdonkKeyDate ?? null,
@@ -327,10 +379,13 @@ export function StoreProvider({ children }) {
         categories,
         budget,
         transactions,
+        calendarFeeds: Array.isArray(settingsMap[CALENDAR_FEEDS_KEY]) ? settingsMap[CALENDAR_FEEDS_KEY] : [],
+        icsEvents: s.icsEvents || [],
+        icsError: s.icsError || null,
         loading: false,
         syncError,
         localMode: false,
-      });
+      }));
     })();
 
     const todosCh = supabase
@@ -397,6 +452,56 @@ export function StoreProvider({ children }) {
       channelsRef.current = [];
     };
   }, [session?.user?.id]);
+
+  // Fetch + parse every configured .ics feed whenever the feed list changes.
+  // Runs in-memory (never persisted); errors are surfaced as icsError but don't
+  // block the rest of the agenda from rendering.
+  const feedsSignature = useMemo(
+    () => (state.calendarFeeds || []).map((f) => `${f.id}|${f.url}`).join(','),
+    [state.calendarFeeds]
+  );
+  useEffect(() => {
+    const feeds = state.calendarFeeds || [];
+    if (feeds.length === 0) {
+      setState((s) => ((s.icsEvents && s.icsEvents.length) || s.icsError ? { ...s, icsEvents: [], icsError: null } : s));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        feeds.map(async (feed) => {
+          try {
+            const res = await fetch(feed.url, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text = await res.text();
+            return {
+              ok: true,
+              feed,
+              events: parseIcs(text).map((e) => ({
+                ...e,
+                feedId: feed.id,
+                feedName: feed.name,
+                color: feed.color || 'var(--accent)',
+              })),
+            };
+          } catch (err) {
+            console.error('ICS ophalen mislukt', feed.url, err);
+            return { ok: false, feed, error: err };
+          }
+        })
+      );
+      if (cancelled) return;
+      const events = results.flatMap((r) => (r.ok ? r.events : []));
+      const failed = results.filter((r) => !r.ok);
+      const icsError = failed.length
+        ? failed.map((r) => `${r.feed.name || r.feed.url}: ${r.error.message || r.error}`).join(' · ')
+        : null;
+      setState((s) => ({ ...s, icsEvents: events, icsError }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [feedsSignature]);
 
   const actions = useMemo(() => makeActions(setState, sessionRef), []);
 
@@ -695,6 +800,59 @@ function makeActions(setState, sessionRef) {
       const { error } = await supabase
         .from('settings')
         .upsert({ key, value }, { onConflict: 'key' });
+      if (error) reportWriteError(setState, error);
+    },
+
+    setCalendarFeeds: async (feeds) => {
+      const value = Array.isArray(feeds) ? feeds : [];
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, calendarFeeds: value }));
+        return;
+      }
+      setState((s) => ({ ...s, calendarFeeds: value }));
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: CALENDAR_FEEDS_KEY, value }, { onConflict: 'key' });
+      if (error) reportWriteError(setState, error);
+    },
+
+    addCalendarFeed: async (feed) => {
+      const url = (feed?.url || '').trim();
+      if (!url) return;
+      const name = (feed?.name || '').trim() || url.replace(/^https?:\/\//, '').split('/')[0];
+      let existing = [];
+      setState((s) => {
+        existing = s.calendarFeeds || [];
+        return s;
+      });
+      if (existing.some((f) => f.url === url)) return;
+      const color = feed?.color || FEED_COLORS[existing.length % FEED_COLORS.length];
+      const next = [...existing, { id: uid(), name, url, color }];
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, calendarFeeds: next }));
+        return;
+      }
+      setState((s) => ({ ...s, calendarFeeds: next }));
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: CALENDAR_FEEDS_KEY, value: next }, { onConflict: 'key' });
+      if (error) reportWriteError(setState, error);
+    },
+
+    removeCalendarFeed: async (id) => {
+      let next = [];
+      setState((s) => {
+        next = (s.calendarFeeds || []).filter((f) => f.id !== id);
+        return s;
+      });
+      if (isLocal()) {
+        localMutate((s) => ({ ...s, calendarFeeds: next }));
+        return;
+      }
+      setState((s) => ({ ...s, calendarFeeds: next }));
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: CALENDAR_FEEDS_KEY, value: next }, { onConflict: 'key' });
       if (error) reportWriteError(setState, error);
     },
 
@@ -1053,12 +1211,18 @@ function applySettingChange(state, payload) {
   const row = payload.new || payload.old;
   if (!row || !SETTINGS_KEYS.includes(row.key)) return state;
   if (payload.eventType === 'DELETE') {
-    const fallback = row.key === 'keyDate' ? KEY_HANDOVER_DATE : row.key === FINANCE_START_BALANCE_KEY ? 0 : null;
+    const fallback =
+      row.key === 'keyDate' ? KEY_HANDOVER_DATE
+      : row.key === FINANCE_START_BALANCE_KEY ? 0
+      : row.key === CALENDAR_FEEDS_KEY ? []
+      : null;
     return { ...state, [row.key]: fallback };
   }
-  const v = payload.new.value;
-  const value = typeof v === 'string' ? v : typeof v === 'number' ? v : v?.raw ?? null;
-  const coerced = row.key === FINANCE_START_BALANCE_KEY ? Number(value) || 0 : value;
+  const value = coerceSettingValue(payload.new.value);
+  const coerced =
+    row.key === FINANCE_START_BALANCE_KEY ? Number(value) || 0
+    : row.key === CALENDAR_FEEDS_KEY ? (Array.isArray(value) ? value : [])
+    : value;
   return { ...state, [row.key]: coerced };
 }
 
