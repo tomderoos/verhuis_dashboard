@@ -49,6 +49,8 @@ export default function Agenda() {
   const [monthKey, setMonthKey] = useState(currentIsoMonth);
   const [selectedDay, setSelectedDay] = useState(todayIso());
   const [assignForm, setAssignForm] = useState({ todoId: '', date: todayIso() });
+  const [feedForm, setFeedForm] = useState({ name: '', url: '' });
+  const [feedsOpen, setFeedsOpen] = useState(false);
 
   useEffect(() => {
     setAssignForm((f) => ({ ...f, date: selectedDay }));
@@ -68,15 +70,28 @@ export default function Agenda() {
     for (const e of state.events) {
       push(e.date, { kind: 'event', ref: e });
     }
+    for (const e of state.icsEvents || []) {
+      push(e.date, { kind: 'ics', ref: e });
+    }
     return map;
-  }, [state.todos, state.events]);
+  }, [state.todos, state.events, state.icsEvents]);
 
   const unplannedTodos = useMemo(
     () => state.todos.filter((t) => !t.done && !t.plannedDate).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     [state.todos]
   );
 
-  const daySelectedItems = itemsByDay.get(selectedDay) || [];
+  const daySelectedItems = useMemo(() => {
+    const items = (itemsByDay.get(selectedDay) || []).slice();
+    const sortKey = (it) => {
+      if (it.kind === 'ics') return it.ref.timeLabel || '00:00';
+      // Non-timed items after timed ICS entries so a day's shifts read like a schedule.
+      return '99:99';
+    };
+    return items.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  }, [itemsByDay, selectedDay]);
+
+  const feeds = state.calendarFeeds || [];
 
   const shiftMonth = (delta) => {
     const [y, m] = monthKey.split('-').map(Number);
@@ -125,15 +140,24 @@ export default function Agenda() {
                 {items.length > 0 && (
                   <div className="agenda-day-items">
                     {items.slice(0, 4).map((it, i) => {
-                      const color = it.kind === 'todo'
-                        ? (it.ref.done ? 'var(--success)' : 'var(--accent)')
-                        : (EVENT_META[it.ref.type] || EVENT_META.overig).color;
+                      let color;
+                      let title;
+                      if (it.kind === 'todo') {
+                        color = it.ref.done ? 'var(--success)' : 'var(--accent)';
+                        title = it.ref.text;
+                      } else if (it.kind === 'event') {
+                        color = (EVENT_META[it.ref.type] || EVENT_META.overig).color;
+                        title = it.ref.title;
+                      } else {
+                        color = it.ref.color || 'var(--text-muted)';
+                        title = `${it.ref.summary}${it.ref.timeLabel ? ` (${it.ref.timeLabel})` : ''}`;
+                      }
                       return (
                         <span
                           key={i}
                           className={`agenda-dot ${it.kind === 'todo' && it.ref.done ? 'is-done' : ''}`}
                           style={{ background: color }}
-                          title={it.kind === 'todo' ? it.ref.text : it.ref.title}
+                          title={title}
                         />
                       );
                     })}
@@ -196,6 +220,80 @@ export default function Agenda() {
             <button type="submit" className="btn primary">Plannen</button>
           </form>
         )}
+
+        <div className={`agenda-feeds ${feedsOpen ? 'is-open' : ''}`}>
+          <button
+            type="button"
+            className="agenda-feeds-toggle"
+            onClick={() => setFeedsOpen((v) => !v)}
+            aria-expanded={feedsOpen}
+          >
+            <span>Externe agenda's (.ics)</span>
+            <span className="dim">
+              {feeds.length === 0
+                ? 'geen'
+                : `${feeds.length} gekoppeld${state.icsEvents?.length ? ` · ${state.icsEvents.length} afspraken` : ''}`}
+            </span>
+            <span aria-hidden>{feedsOpen ? '▾' : '▸'}</span>
+          </button>
+          {feedsOpen && (
+            <div className="agenda-feeds-body">
+              {state.icsError && <div className="callout error-callout small">Feed-fout: {state.icsError}</div>}
+              {feeds.length > 0 && (
+                <ul className="agenda-feeds-list">
+                  {feeds.map((f) => (
+                    <li key={f.id}>
+                      <span className="agenda-feeds-dot" style={{ background: f.color || 'var(--accent)' }} />
+                      <span className="agenda-feeds-name">{f.name || f.url}</span>
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="dim agenda-feeds-url"
+                        title={f.url}
+                      >
+                        bron
+                      </a>
+                      <button
+                        type="button"
+                        className="btn tiny ghost"
+                        title="Verwijder deze feed"
+                        onClick={() => actions.removeCalendarFeed(f.id)}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                className="agenda-feeds-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!feedForm.url.trim()) return;
+                  actions.addCalendarFeed({ name: feedForm.name.trim(), url: feedForm.url.trim() });
+                  setFeedForm({ name: '', url: '' });
+                }}
+              >
+                <input
+                  className="input"
+                  placeholder="Naam (optioneel)"
+                  value={feedForm.name}
+                  onChange={(e) => setFeedForm({ ...feedForm, name: e.target.value })}
+                />
+                <input
+                  className="input"
+                  type="url"
+                  placeholder="https://…/calendar.ics"
+                  value={feedForm.url}
+                  onChange={(e) => setFeedForm({ ...feedForm, url: e.target.value })}
+                  required
+                />
+                <button type="submit" className="btn small">Toevoegen</button>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -229,6 +327,31 @@ function AgendaItem({ item, actions }) {
         >
           ✕
         </button>
+      </div>
+    );
+  }
+  if (item.kind === 'ics') {
+    const e = item.ref;
+    const timeText = e.timeLabel
+      ? e.endTimeLabel
+        ? `${e.timeLabel}–${e.endTimeLabel}`
+        : e.timeLabel
+      : e.allDay ? 'Hele dag' : '';
+    const subParts = [timeText, e.location].filter(Boolean);
+    return (
+      <div className="agenda-item is-ics">
+        <div
+          className="agenda-item-icon"
+          style={{ background: e.color || 'var(--accent)' }}
+          aria-hidden
+        >
+          📅
+        </div>
+        <div className="agenda-item-body">
+          <div className="agenda-item-text">{e.summary || '(zonder titel)'}</div>
+          {subParts.length > 0 && <div className="agenda-item-sub">{subParts.join(' · ')}</div>}
+        </div>
+        <span className="agenda-item-tag dim" title={e.feedName}>{e.feedName || 'Externe agenda'}</span>
       </div>
     );
   }

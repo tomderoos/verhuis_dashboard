@@ -2187,6 +2187,71 @@ input, select, textarea {
   .agenda-assign { grid-template-columns: 1fr; }
 }
 
+.agenda-feeds {
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agenda-feeds-toggle {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 2px 0;
+}
+.agenda-feeds-toggle:hover { color: var(--text); }
+.agenda-feeds-body { display: flex; flex-direction: column; gap: 8px; }
+.agenda-feeds-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.agenda-feeds-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  font-size: 13px;
+}
+.agenda-feeds-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.agenda-feeds-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agenda-feeds-url { font-size: 12px; }
+.agenda-feeds-form {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .agenda-feeds-form { grid-template-columns: 1fr; }
+  .agenda-feeds-list li { grid-template-columns: auto 1fr auto; }
+  .agenda-feeds-list li .agenda-feeds-url { display: none; }
+}
+.callout.small { padding: 6px 10px; font-size: 12px; }
+
 /* Person tag on todos */
 .person-tag {
   border: 1px solid var(--border);
