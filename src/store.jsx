@@ -81,6 +81,8 @@ const DEFAULT_LOCAL = {
     { id: uid(), title: 'Oude eettafel', platform: 'marktplaats', url: '', askingPrice: 75, sold: false, soldPrice: null, notes: '' },
   ],
   calendarFeeds: DEFAULT_CALENDAR_FEEDS.map((f) => ({ ...f })),
+  todoPhotos: [],
+  todoPhotoUrls: {},
   ...buildLocalFinance(),
 };
 
@@ -100,10 +102,15 @@ const DEFAULT_STATE = {
   calendarFeeds: [],
   icsEvents: [],
   icsError: null,
+  todoPhotos: [],
+  todoPhotoUrls: {},
   loading: true,
   syncError: null,
   localMode: false,
 };
+
+const TODO_PHOTOS_BUCKET = 'todo-photos';
+const SIGNED_URL_TTL_SECONDS = 3600;
 
 function uid() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -247,6 +254,32 @@ function financeTransactionFromRow(row) {
   };
 }
 
+function todoPhotoFromRow(row) {
+  return {
+    id: row.id,
+    todoId: row.todo_id,
+    kind: row.kind,
+    path: row.path,
+  };
+}
+
+async function signPhotoUrls(paths) {
+  if (!paths.length) return {};
+  const { data, error } = await supabase
+    .storage
+    .from(TODO_PHOTOS_BUCKET)
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  if (error) {
+    console.error('Kon signed URLs niet aanmaken', error);
+    return {};
+  }
+  const out = {};
+  for (const entry of data || []) {
+    if (entry?.path && entry?.signedUrl) out[entry.path] = entry.signedUrl;
+  }
+  return out;
+}
+
 export function StoreProvider({ children }) {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -287,6 +320,8 @@ export function StoreProvider({ children }) {
           ...local,
           icsEvents: [],
           icsError: null,
+          todoPhotos: local.todoPhotos || [],
+          todoPhotoUrls: local.todoPhotoUrls || {},
           loading: false,
           syncError: null,
           localMode: true,
@@ -308,7 +343,7 @@ export function StoreProvider({ children }) {
           return res.data;
         }, () => !cancelled).catch((err) => ({ __failed: true, label, err }));
 
-      const [todos, events, expenses, saleItems, settings, financeCategories, financeBudget, financeTx] = await Promise.all([
+      const [todos, events, expenses, saleItems, settings, financeCategories, financeBudget, financeTx, todoPhotos] = await Promise.all([
         loadOne('todos', () =>
           supabase.from('todos').select('*').order('done').order('sort_order', { ascending: true, nullsFirst: false })
         ),
@@ -327,10 +362,11 @@ export function StoreProvider({ children }) {
         loadOne('finance_transactions', () =>
           supabase.from('finance_transactions').select('*').order('date', { ascending: false })
         ),
+        loadOne('todo_photos', () => supabase.from('todo_photos').select('*')),
       ]);
       if (cancelled) return;
 
-      const failures = [todos, events, expenses, saleItems, settings, financeCategories, financeBudget, financeTx].filter((r) => r && r.__failed);
+      const failures = [todos, events, expenses, saleItems, settings, financeCategories, financeBudget, financeTx, todoPhotos].filter((r) => r && r.__failed);
       const asRows = (r) => (r && r.__failed ? [] : r || []);
 
       const settingsMap = {};
@@ -366,6 +402,10 @@ export function StoreProvider({ children }) {
         : null;
       if (failures.length) console.error('Supabase load errors', failures);
 
+      const photos = asRows(todoPhotos).map(todoPhotoFromRow);
+      const photoUrls = await signPhotoUrls(photos.map((p) => p.path));
+      if (cancelled) return;
+
       setState((s) => ({
         keyDate: settingsMap.keyDate ?? KEY_HANDOVER_DATE,
         moveDate: settingsMap.moveDate ?? null,
@@ -382,6 +422,8 @@ export function StoreProvider({ children }) {
         calendarFeeds: Array.isArray(settingsMap[CALENDAR_FEEDS_KEY]) ? settingsMap[CALENDAR_FEEDS_KEY] : [],
         icsEvents: s.icsEvents || [],
         icsError: s.icsError || null,
+        todoPhotos: photos,
+        todoPhotoUrls: photoUrls,
         loading: false,
         syncError,
         localMode: false,
@@ -444,13 +486,54 @@ export function StoreProvider({ children }) {
       })
       .subscribe();
 
-    channelsRef.current = [todosCh, eventsCh, expensesCh, saleItemsCh, settingsCh, finCatsCh, finBudgetCh, finTxCh];
+    const todoPhotosCh = supabase
+      .channel('rt-todo-photos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_photos' }, async (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setState((s) => ({
+            ...s,
+            todoPhotos: s.todoPhotos.filter((p) => p.id !== payload.old.id),
+          }));
+          return;
+        }
+        const photo = todoPhotoFromRow(payload.new);
+        const urls = await signPhotoUrls([photo.path]);
+        setState((s) => {
+          const others = s.todoPhotos.filter((p) => p.id !== photo.id);
+          return {
+            ...s,
+            todoPhotos: [...others, photo],
+            todoPhotoUrls: { ...s.todoPhotoUrls, ...urls },
+          };
+        });
+      })
+      .subscribe();
+
+    channelsRef.current = [todosCh, eventsCh, expensesCh, saleItemsCh, settingsCh, finCatsCh, finBudgetCh, finTxCh, todoPhotosCh];
 
     return () => {
       cancelled = true;
       for (const ch of channelsRef.current) supabase.removeChannel(ch);
       channelsRef.current = [];
     };
+  }, [session?.user?.id]);
+
+  // Signed URL's voor foto's verlopen na een uur — periodiek opnieuw laten
+  // signen zodat previews niet halverwege een sessie doodgaan.
+  useEffect(() => {
+    if (!session) return;
+    const refresh = async () => {
+      let paths = [];
+      setState((s) => {
+        paths = (s.todoPhotos || []).map((p) => p.path);
+        return s;
+      });
+      if (!paths.length) return;
+      const urls = await signPhotoUrls(paths);
+      setState((s) => ({ ...s, todoPhotoUrls: { ...s.todoPhotoUrls, ...urls } }));
+    };
+    const id = setInterval(refresh, (SIGNED_URL_TTL_SECONDS - 300) * 1000);
+    return () => clearInterval(id);
   }, [session?.user?.id]);
 
   // Fetch + parse every configured .ics feed whenever the feed list changes.
@@ -801,6 +884,103 @@ function makeActions(setState, sessionRef) {
         .from('settings')
         .upsert({ key, value }, { onConflict: 'key' });
       if (error) reportWriteError(setState, error);
+    },
+
+    uploadTodoPhoto: async (todoId, kind, file) => {
+      if (!todoId || !file) return { error: new Error('Ontbrekend bestand of klus') };
+      if (kind !== 'before' && kind !== 'after') return { error: new Error('Onbekend type foto') };
+      if (isLocal()) {
+        // Localmode-fallback: base64 in localStorage zodat je in dev kunt testen.
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        const path = `local://${todoId}/${kind}`;
+        localMutate((s) => {
+          const others = (s.todoPhotos || []).filter((p) => !(p.todoId === todoId && p.kind === kind));
+          return {
+            ...s,
+            todoPhotos: [...others, { id: path, todoId, kind, path }],
+            todoPhotoUrls: { ...(s.todoPhotoUrls || {}), [path]: dataUrl },
+          };
+        });
+        return { ok: true };
+      }
+      let existingPath = null;
+      let existingId = null;
+      setState((s) => {
+        const existing = (s.todoPhotos || []).find((p) => p.todoId === todoId && p.kind === kind);
+        if (existing) {
+          existingPath = existing.path;
+          existingId = existing.id;
+        }
+        return s;
+      });
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${todoId}/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(TODO_PHOTOS_BUCKET)
+        .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type || undefined });
+      if (upErr) {
+        reportWriteError(setState, upErr);
+        return { error: upErr };
+      }
+      let dbErr = null;
+      if (existingId) {
+        const { error } = await supabase
+          .from('todo_photos')
+          .update({ path })
+          .eq('id', existingId);
+        dbErr = error;
+      } else {
+        const { error } = await supabase
+          .from('todo_photos')
+          .insert({ todo_id: todoId, kind, path });
+        dbErr = error;
+      }
+      if (dbErr) {
+        // Rol de storage-upload terug zodat er geen wees-blob achterblijft.
+        await supabase.storage.from(TODO_PHOTOS_BUCKET).remove([path]).catch(() => {});
+        reportWriteError(setState, dbErr);
+        return { error: dbErr };
+      }
+      if (existingPath && existingPath !== path) {
+        await supabase.storage.from(TODO_PHOTOS_BUCKET).remove([existingPath]).catch(() => {});
+      }
+      const urls = await signPhotoUrls([path]);
+      setState((s) => ({
+        ...s,
+        todoPhotoUrls: { ...s.todoPhotoUrls, ...urls },
+      }));
+      return { ok: true };
+    },
+
+    removeTodoPhoto: async (todoId, kind) => {
+      if (isLocal()) {
+        localMutate((s) => ({
+          ...s,
+          todoPhotos: (s.todoPhotos || []).filter((p) => !(p.todoId === todoId && p.kind === kind)),
+        }));
+        return;
+      }
+      let target = null;
+      setState((s) => {
+        target = (s.todoPhotos || []).find((p) => p.todoId === todoId && p.kind === kind) || null;
+        return s;
+      });
+      if (!target) return;
+      const { error: dbErr } = await supabase.from('todo_photos').delete().eq('id', target.id);
+      if (dbErr) {
+        reportWriteError(setState, dbErr);
+        return;
+      }
+      await supabase.storage.from(TODO_PHOTOS_BUCKET).remove([target.path]).catch(() => {});
+      setState((s) => ({
+        ...s,
+        todoPhotos: s.todoPhotos.filter((p) => p.id !== target.id),
+      }));
     },
 
     setCalendarFeeds: async (feeds) => {

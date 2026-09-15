@@ -758,6 +758,70 @@ input, select, textarea {
   white-space: pre-wrap;
 }
 
+.todo-photos {
+  margin: 8px 0 0 34px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .todo-photos { grid-template-columns: 1fr; }
+}
+.todo-photo-slot {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 120px;
+}
+.todo-photo-slot.has-photo {
+  border-style: solid;
+  background: var(--bg-elevated);
+}
+.todo-photo-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.todo-photo-drop {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  border-radius: 8px;
+  background: var(--bg-muted);
+  min-height: 90px;
+  transition: color 0.15s, background 0.15s;
+}
+.todo-photo-drop:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.todo-photo-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.todo-photo-preview img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+.todo-photo-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .checkbox {
   display: inline-flex;
   position: relative;

@@ -188,6 +188,46 @@ create policy "allowed write finance_transactions"  on public.finance_transactio
 create policy "allowed update finance_transactions" on public.finance_transactions for update using (public.is_allowed());
 create policy "allowed delete finance_transactions" on public.finance_transactions for delete using (public.is_allowed());
 
+-- Voor- en na-foto's per klus. Bestanden gaan naar de storage bucket 'todo-photos';
+-- deze tabel bewaart alleen de referentie (max één voor- en één na-foto per todo).
+create table if not exists public.todo_photos (
+  id uuid primary key default gen_random_uuid(),
+  todo_id uuid not null references public.todos(id) on delete cascade,
+  kind text not null check (kind in ('before','after')),
+  path text not null,
+  created_at timestamptz not null default now(),
+  unique (todo_id, kind)
+);
+
+alter table public.todo_photos enable row level security;
+
+drop policy if exists "allowed read todo_photos"   on public.todo_photos;
+drop policy if exists "allowed write todo_photos"  on public.todo_photos;
+drop policy if exists "allowed update todo_photos" on public.todo_photos;
+drop policy if exists "allowed delete todo_photos" on public.todo_photos;
+create policy "allowed read todo_photos"   on public.todo_photos for select using (public.is_allowed());
+create policy "allowed write todo_photos"  on public.todo_photos for insert with check (public.is_allowed());
+create policy "allowed update todo_photos" on public.todo_photos for update using (public.is_allowed());
+create policy "allowed delete todo_photos" on public.todo_photos for delete using (public.is_allowed());
+
+-- Private storage bucket voor de foto's. Signed URL's regelen de weergave.
+insert into storage.buckets (id, name, public)
+values ('todo-photos', 'todo-photos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "allowed read todo-photos"   on storage.objects;
+drop policy if exists "allowed write todo-photos"  on storage.objects;
+drop policy if exists "allowed delete todo-photos" on storage.objects;
+create policy "allowed read todo-photos"
+  on storage.objects for select
+  using (bucket_id = 'todo-photos' and public.is_allowed());
+create policy "allowed write todo-photos"
+  on storage.objects for insert
+  with check (bucket_id = 'todo-photos' and public.is_allowed());
+create policy "allowed delete todo-photos"
+  on storage.objects for delete
+  using (bucket_id = 'todo-photos' and public.is_allowed());
+
 -- Realtime: laat wijzigingen naar alle clients streamen (idempotent).
 do $$ begin
   alter publication supabase_realtime add table public.todos;
@@ -212,6 +252,9 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 do $$ begin
   alter publication supabase_realtime add table public.finance_transactions;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.todo_photos;
 exception when duplicate_object then null; end $$;
 
 -- updated_at auto-onderhoud.

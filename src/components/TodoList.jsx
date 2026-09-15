@@ -97,6 +97,7 @@ export default function TodoList() {
   const [sizeFilter, setSizeFilter] = useState('all');
   const [personFilter, setPersonFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
+  const [photosExpandedId, setPhotosExpandedId] = useState(null);
 
   const roomList = useMemo(() => {
     const set = new Set();
@@ -376,6 +377,8 @@ export default function TodoList() {
                 todo={todo}
                 expanded={expandedId === todo.id}
                 onExpand={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
+                photosExpanded={photosExpandedId === todo.id}
+                onExpandPhotos={() => setPhotosExpandedId(photosExpandedId === todo.id ? null : todo.id)}
               />
             ))}
           </ul>
@@ -390,6 +393,8 @@ export default function TodoList() {
               todo={todo}
               expanded={expandedId === todo.id}
               onExpand={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
+              photosExpanded={photosExpandedId === todo.id}
+              onExpandPhotos={() => setPhotosExpandedId(photosExpandedId === todo.id ? null : todo.id)}
             />
           ))}
         </ul>
@@ -402,7 +407,7 @@ export default function TodoList() {
   );
 }
 
-function SortableTodoItem({ todo, expanded, onExpand }) {
+function SortableTodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: todo.id,
   });
@@ -416,13 +421,20 @@ function SortableTodoItem({ todo, expanded, onExpand }) {
       todo={todo}
       expanded={expanded}
       onExpand={onExpand}
+      photosExpanded={photosExpanded}
+      onExpandPhotos={onExpandPhotos}
       dragHandleProps={{ ref: setNodeRef, style, listeners, attributes, isDragging }}
     />
   );
 }
 
-function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
-  const { actions } = useStore();
+function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dragHandleProps }) {
+  const { state, actions } = useStore();
+  const photos = useMemo(
+    () => (state.todoPhotos || []).filter((p) => p.todoId === todo.id),
+    [state.todoPhotos, todo.id]
+  );
+  const hasPhoto = photos.length > 0;
   const rootProps = dragHandleProps
     ? { ref: dragHandleProps.ref, style: dragHandleProps.style }
     : {};
@@ -491,6 +503,13 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
           {todo.comment ? '📝' : '＋'}
         </button>
         <button
+          className={`btn tiny ${hasPhoto ? 'accent' : 'ghost'}`}
+          onClick={onExpandPhotos}
+          title="Voor- en na-foto's"
+        >
+          📷
+        </button>
+        <button
           className="btn tiny ghost"
           onClick={() => actions.removeTodo(todo.id)}
           title="Verwijderen"
@@ -512,7 +531,83 @@ function TodoItem({ todo, expanded, onExpand, dragHandleProps }) {
           {todo.comment}
         </div>
       )}
+      {photosExpanded && <PhotoPanel todoId={todo.id} photos={photos} />}
     </li>
+  );
+}
+
+function PhotoPanel({ todoId, photos }) {
+  const { state, actions } = useStore();
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState(null);
+
+  const byKind = { before: null, after: null };
+  for (const p of photos) if (p.kind in byKind) byKind[p.kind] = p;
+
+  const handleFile = async (kind, file) => {
+    if (!file) return;
+    setError(null);
+    setBusy(kind);
+    const res = await actions.uploadTodoPhoto(todoId, kind, file);
+    if (res?.error) {
+      setError(res.error.message || 'Uploaden mislukt');
+    }
+    setBusy(null);
+  };
+
+  return (
+    <div className="todo-photos">
+      {['before', 'after'].map((kind) => {
+        const photo = byKind[kind];
+        const url = photo ? state.todoPhotoUrls?.[photo.path] : null;
+        const label = kind === 'before' ? 'Voor' : 'Na';
+        const inputId = `photo-${todoId}-${kind}`;
+        return (
+          <div key={kind} className={`todo-photo-slot ${photo ? 'has-photo' : ''}`}>
+            <div className="todo-photo-label">{label}</div>
+            {photo ? (
+              <div className="todo-photo-preview">
+                {url ? (
+                  <a href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt={`${label}-foto`} loading="lazy" />
+                  </a>
+                ) : (
+                  <div className="empty">Laden…</div>
+                )}
+                <div className="todo-photo-actions">
+                  <label className="btn tiny ghost" htmlFor={inputId}>
+                    Vervangen
+                  </label>
+                  <button
+                    type="button"
+                    className="btn tiny ghost"
+                    onClick={() => actions.removeTodoPhoto(todoId, kind)}
+                  >
+                    Verwijderen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="todo-photo-drop" htmlFor={inputId}>
+                {busy === kind ? 'Uploaden…' : '📎 Foto toevoegen'}
+              </label>
+            )}
+            <input
+              id={inputId}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) handleFile(kind, file);
+              }}
+            />
+          </div>
+        );
+      })}
+      {error && <div className="callout error-callout small">{error}</div>}
+    </div>
   );
 }
 
