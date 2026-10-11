@@ -72,9 +72,11 @@ create policy "allowed delete events" on public.events for delete using (public.
 drop policy if exists "allowed read settings"   on public.settings;
 drop policy if exists "allowed write settings"  on public.settings;
 drop policy if exists "allowed update settings" on public.settings;
+drop policy if exists "allowed delete settings" on public.settings;
 create policy "allowed read settings"   on public.settings for select using (public.is_allowed());
 create policy "allowed write settings"  on public.settings for insert with check (public.is_allowed());
 create policy "allowed update settings" on public.settings for update using (public.is_allowed());
+create policy "allowed delete settings" on public.settings for delete using (public.is_allowed());
 
 create table if not exists public.sale_items (
   id uuid primary key default gen_random_uuid(),

@@ -880,6 +880,17 @@ function makeActions(setState, sessionRef) {
         return;
       }
       setState((s) => ({ ...s, [key]: value }));
+      if (value === null) {
+        // settings.value is NOT NULL: een gewiste datum is een verwijderde rij.
+        const { data, error } = await supabase.from('settings').delete().eq('key', key).select('key');
+        if (error) reportWriteError(setState, error);
+        else if (!data?.length) {
+          // RLS laat een geweigerde delete stil 0 rijen raken; controleer of de rij er nog staat.
+          const { data: still } = await supabase.from('settings').select('key').eq('key', key);
+          if (still?.length) reportWriteError(setState, new Error('Geen rechten om de datum te verwijderen (delete-policy op settings ontbreekt)'));
+        }
+        return;
+      }
       const { error } = await supabase
         .from('settings')
         .upsert({ key, value }, { onConflict: 'key' });
