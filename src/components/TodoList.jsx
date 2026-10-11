@@ -96,6 +96,7 @@ export default function TodoList() {
   const [filter, setFilter] = useState('all');
   const [sizeFilter, setSizeFilter] = useState('all');
   const [personFilter, setPersonFilter] = useState('all');
+  const [shootFilter, setShootFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [photosExpandedId, setPhotosExpandedId] = useState(null);
 
@@ -142,7 +143,11 @@ export default function TodoList() {
     if (personFilter === '__empty__') return !t.assignee;
     return t.assignee === personFilter;
   };
-  const matchesFilter = (t) => matchesRoom(t) && matchesSize(t) && matchesPerson(t);
+  const matchesShoot = (t) => {
+    if (shootFilter === 'all') return true;
+    return shootFilter === 'after' ? t.afterShoot : !t.afterShoot;
+  };
+  const matchesFilter = (t) => matchesRoom(t) && matchesSize(t) && matchesPerson(t) && matchesShoot(t);
 
   const personList = useMemo(() => {
     const set = new Set();
@@ -165,13 +170,22 @@ export default function TodoList() {
     return counts;
   }, [state.todos]);
 
+  const shootCounts = useMemo(() => {
+    const counts = { after: 0, before: 0 };
+    for (const t of state.todos) {
+      if (t.done) continue;
+      counts[t.afterShoot ? 'after' : 'before'] += 1;
+    }
+    return counts;
+  }, [state.todos]);
+
   const { open, done } = useMemo(() => {
     const sortByOrder = (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     const openList = state.todos.filter((t) => !t.done).filter(matchesFilter).slice().sort(sortByOrder);
     const doneList = state.todos.filter((t) => t.done).filter(matchesFilter).slice().sort(sortByOrder);
     return { open: openList, done: doneList };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.todos, filter, sizeFilter, personFilter]);
+  }, [state.todos, filter, sizeFilter, personFilter, shootFilter]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -368,6 +382,30 @@ export default function TodoList() {
         </div>
       )}
 
+      {shootCounts.after > 0 && (
+        <div className="chip-row">
+          <span className="chip-row-label">Funda shoot:</span>
+          <button
+            className={`chip ${shootFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setShootFilter('all')}
+          >
+            Alles
+          </button>
+          <button
+            className={`chip ${shootFilter === 'before' ? 'active' : ''}`}
+            onClick={() => setShootFilter('before')}
+          >
+            Vóór de shoot ({shootCounts.before})
+          </button>
+          <button
+            className={`chip ${shootFilter === 'after' ? 'active' : ''}`}
+            onClick={() => setShootFilter('after')}
+          >
+            <span aria-hidden>📸</span> Mag na de Funda shoot ({shootCounts.after})
+          </button>
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={open.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <ul className="todo-list">
@@ -490,6 +528,10 @@ function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dr
         <SizeTag
           size={todo.size}
           onChange={(next) => actions.updateTodo(todo.id, { size: next })}
+        />
+        <AfterShootTag
+          afterShoot={todo.afterShoot}
+          onChange={(next) => actions.updateTodo(todo.id, { afterShoot: next })}
         />
         <DateTag
           date={todo.plannedDate}
@@ -719,6 +761,20 @@ function SizeTag({ size, onChange }) {
       title={title}
     >
       {meta ? <><span aria-hidden>{meta.icon}</span> {label}</> : '⚪ klus'}
+    </button>
+  );
+}
+
+function AfterShootTag({ afterShoot, onChange }) {
+  return (
+    <button
+      type="button"
+      className={`size-tag shoot-tag ${afterShoot ? 'is-on' : 'is-empty'}`}
+      onClick={() => onChange(!afterShoot)}
+      title={afterShoot ? 'Mag na de Funda shoot — klik om uit te zetten' : 'Markeer als: mag na de Funda shoot'}
+    >
+      <span aria-hidden>📸</span>
+      {afterShoot && ' Na shoot'}
     </button>
   );
 }

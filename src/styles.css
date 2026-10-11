@@ -2367,8 +2367,14 @@ input, select, textarea {
 .size-tag.is-empty { opacity: 0.5; }
 .size-tag.is-empty:hover { opacity: 1; }
 .size-tag.is-klein,
-.size-tag.is-groot {
+.size-tag.is-groot,
+.shoot-tag.is-on {
   background: transparent;
+}
+
+.shoot-tag.is-on {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
 }
 
 .chip-row-label {
