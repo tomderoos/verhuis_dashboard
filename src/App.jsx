@@ -214,7 +214,7 @@ function DashboardBody() {
   return (
     <>
       <div className="countdown-row countdown-row-4">
-        <Countdown stateKey="salePrepDate" eyebrow="Klaar voor verkoop" />
+        <Countdown stateKey="salePrepDate" eyebrow="Klaar voor de foto's" />
         <Countdown stateKey="kloversdonkKeyDate" eyebrow="Overdracht Kloversdonk 213" />
         <Countdown stateKey="moveDate" eyebrow="Verhuisdatum" />
         <Countdown stateKey="keyDate" eyebrow="Sleutels Bloemheuvellaan 51" />
