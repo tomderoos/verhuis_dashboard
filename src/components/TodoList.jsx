@@ -296,7 +296,7 @@ export default function TodoList() {
       )}
 
       {(roomList.rooms.length > 0 || roomList.hasEmpty) && (
-        <div className="chip-row">
+        <div className="chip-row todo-filter-row todo-room-filter">
           <button
             className={`chip ${filter === 'all' ? 'active' : ''}`}
             onClick={() => setFilter('all')}
@@ -324,7 +324,7 @@ export default function TodoList() {
       )}
 
       {(personList.persons.length > 0 || personList.hasEmpty) && (
-        <div className="chip-row">
+        <div className="chip-row todo-filter-row">
           <span className="chip-row-label">Wie:</span>
           <button
             className={`chip ${personFilter === 'all' ? 'active' : ''}`}
@@ -354,7 +354,7 @@ export default function TodoList() {
       )}
 
       {(sizeCounts.klein > 0 || sizeCounts.groot > 0 || sizeCounts.__empty__ > 0) && (
-        <div className="chip-row">
+        <div className="chip-row todo-filter-row">
           <span className="chip-row-label">Klus:</span>
           <button
             className={`chip ${sizeFilter === 'all' ? 'active' : ''}`}
@@ -383,7 +383,7 @@ export default function TodoList() {
       )}
 
       {shootCounts.after > 0 && (
-        <div className="chip-row">
+        <div className="chip-row todo-filter-row">
           <span className="chip-row-label">Funda shoot:</span>
           <button
             className={`chip ${shootFilter === 'all' ? 'active' : ''}`}
@@ -508,11 +508,11 @@ function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dr
           />
           <span />
         </label>
-        <input
-          className="todo-text"
+        <TodoText
           value={todo.text}
-          onChange={(e) => actions.updateTodo(todo.id, { text: e.target.value })}
+          onChange={(next) => actions.updateTodo(todo.id, { text: next })}
         />
+        <div className="todo-meta">
         {todo.room ? (
           <RoomTag
             room={todo.room}
@@ -537,6 +537,7 @@ function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dr
           date={todo.plannedDate}
           onChange={(next) => actions.updateTodo(todo.id, { plannedDate: next || null })}
         />
+        <span className="todo-actions">
         <button
           className={`btn tiny ${todo.comment ? 'accent' : 'ghost'}`}
           onClick={onExpand}
@@ -558,6 +559,8 @@ function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dr
         >
           ✕
         </button>
+        </span>
+        </div>
       </div>
       {expanded && (
         <textarea
@@ -691,6 +694,34 @@ function RoomTag({ room, onChange }) {
   );
 }
 
+// Textarea zodat lange taken op smalle schermen afbreken in plaats van wegvallen.
+function TodoText({ value, onChange }) {
+  const ref = React.useRef(null);
+  const fit = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  React.useLayoutEffect(fit, [value]);
+  useEffect(() => {
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
+  return (
+    <textarea
+      ref={ref}
+      className="todo-text"
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value.replace(/\n/g, ' '))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+      }}
+    />
+  );
+}
+
 function PersonTag({ person, onChange }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person || '');
@@ -705,7 +736,7 @@ function PersonTag({ person, onChange }) {
           title="Wie doet deze klus?"
           onClick={() => setEditing(true)}
         >
-          👤 wie?
+          👤<span className="tag-text"> wie?</span>
         </button>
       );
     }
@@ -760,7 +791,7 @@ function SizeTag({ size, onChange }) {
       onClick={() => onChange(nextSize)}
       title={title}
     >
-      {meta ? <><span aria-hidden>{meta.icon}</span> {label}</> : '⚪ klus'}
+      {meta ? <><span aria-hidden>{meta.icon}</span> {label}</> : <>⚪<span className="tag-text"> klus</span></>}
     </button>
   );
 }

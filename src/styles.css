@@ -2499,3 +2499,73 @@ input, select, textarea {
 .hero .top-nav {
   flex-wrap: wrap;
 }
+
+/* ===== To-do: textarea + meta-rij, mobiel overzichtelijk ===== */
+textarea.todo-text {
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  line-height: 1.35;
+  display: block;
+}
+/* Desktop: labels en knoppen staan gewoon inline in de rij. */
+.todo-meta,
+.todo-actions { display: contents; }
+
+@media (max-width: 640px) {
+  .card { padding: 16px 14px; gap: 14px; }
+  .todo-item { padding: 10px 6px; border-bottom: 1px solid var(--border); border-radius: 0; }
+  .todo-item:last-child { border-bottom: 0; }
+  .todo-list { gap: 0; }
+
+  .todo-row { flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; }
+  .todo-row .drag-handle,
+  .todo-row .checkbox { margin-top: 3px; }
+  .todo-text { flex: 1 1 0; font-size: 16px; padding: 2px 0; }
+
+  /* Tweede regel: labels links, acties rechts, uitgelijnd onder de tekst. */
+  .todo-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding-left: 28px;
+  }
+  .todo-done-list .todo-meta { padding-left: 30px; }
+
+  /* Voortgangsbalken filteren al op ruimte; de chip-rij is dan dubbel. */
+  .room-progress ~ .todo-room-filter { display: none; }
+  .room-progress { gap: 0; }
+  .room-progress-row { padding: 3px 6px; }
+  .todo-actions { display: flex; gap: 0; margin-left: auto; }
+  .todo-actions .btn.tiny { padding: 4px 7px; border-color: transparent; background: transparent; }
+  .todo-actions .btn.tiny.accent { background: var(--accent-soft); }
+  .todo-meta .room-tag,
+  .todo-meta .person-tag,
+  .todo-meta .size-tag,
+  .todo-meta .date-tag { font-size: 11px; padding: 1px 7px; }
+  .todo-meta .room-tag { max-width: 140px; }
+  .todo-meta .room-add { opacity: 1; }
+
+  /* Lege labels alleen als klein icoon. */
+  .todo-meta .tag-text { display: none; }
+  .todo-meta .person-tag-empty,
+  .todo-meta .size-tag.is-empty,
+  .todo-meta .date-tag-empty { padding: 1px 5px; }
+
+  .todo-comment-preview,
+  .todo-photos { margin-left: 28px; }
+
+  /* Filters: één regel per filter, horizontaal scrollen in plaats van stapelen. */
+  .todo-filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -4px;
+    padding: 0 4px 2px;
+  }
+  .todo-filter-row::-webkit-scrollbar { display: none; }
+  .todo-filter-row .chip { flex-shrink: 0; white-space: nowrap; }
+  .todo-filter-row .chip-row-label { flex-shrink: 0; }
+}
