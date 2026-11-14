@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
+import { ExternalLink, Check, Undo2, X } from 'lucide-react';
+import { DOT_COLORS } from '../utils/palette.js';
 import { useStore } from '../store.jsx';
 
 export const PLATFORMS = [
-  { id: 'marktplaats', label: 'Marktplaats', icon: '🟠', color: '#f97316' },
-  { id: 'vinted', label: 'Vinted', icon: '🟢', color: '#10b981' },
-  { id: 'ebay', label: 'eBay', icon: '🔵', color: '#0ea5e9' },
-  { id: 'facebook', label: 'Facebook', icon: '🔷', color: '#1877f2' },
-  { id: 'overig', label: 'Overig', icon: '📌', color: '#64748b' },
+  { id: 'marktplaats', label: 'Marktplaats', color: DOT_COLORS[3] },
+  { id: 'vinted', label: 'Vinted', color: DOT_COLORS[5] },
+  { id: 'ebay', label: 'eBay', color: DOT_COLORS[1] },
+  { id: 'facebook', label: 'Facebook', color: DOT_COLORS[4] },
+  { id: 'overig', label: 'Overig', color: '#8a847a' },
 ];
 
 function platformMeta(id) {
@@ -99,7 +101,7 @@ export default function SaleItems() {
           >
             {PLATFORMS.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.icon} {p.label}
+                {p.label}
               </option>
             ))}
           </select>
@@ -133,7 +135,7 @@ export default function SaleItems() {
           <div>
             <h2 className="card-title">Overzicht</h2>
             <div className="card-sub">
-              {state.saleItems.length} items · {totals.soldCount} verkocht
+              {state.saleItems.length} {state.saleItems.length === 1 ? 'item' : 'items'} · {totals.soldCount} verkocht
             </div>
           </div>
           <div className="chip-row">
@@ -195,8 +197,8 @@ function SaleRow({ item }) {
 
   return (
     <div className={`sale-item ${item.sold ? 'is-sold' : ''}`}>
-      <div className="sale-badge" style={{ background: meta.color }} aria-hidden>
-        {meta.icon}
+      <div className="sale-badge" aria-hidden>
+        <span className="person-dot" style={{ background: meta.color }} />
       </div>
       <div className="sale-body">
         <div className="sale-title-row">
@@ -213,7 +215,7 @@ function SaleRow({ item }) {
               rel="noreferrer"
               title="Open advertentie"
             >
-              ↗
+              <ExternalLink size={16} strokeWidth={1.5} />
             </a>
           )}
         </div>
@@ -225,7 +227,7 @@ function SaleRow({ item }) {
           >
             {PLATFORMS.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.icon} {p.label}
+                {p.label}
               </option>
             ))}
           </select>
@@ -285,18 +287,18 @@ function SaleRow({ item }) {
           </div>
         ) : (
           <button className="btn tiny sale-sold-btn" onClick={openMarkSold}>
-            Verkocht ✓
+            <Check size={16} strokeWidth={1.5} aria-hidden /> Verkocht
           </button>
         )}
       </div>
       <div className="sale-actions">
         {item.sold && (
           <button className="btn tiny ghost" onClick={unmarkSold} title="Terug naar te koop">
-            ↺
+            <Undo2 size={16} strokeWidth={1.5} />
           </button>
         )}
         <button className="btn tiny ghost" onClick={() => actions.removeSaleItem(item.id)} title="Verwijderen">
-          ✕
+          <X size={16} strokeWidth={1.5} />
         </button>
       </div>
     </div>

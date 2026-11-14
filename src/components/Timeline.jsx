@@ -1,12 +1,9 @@
 import React, { useMemo, useState } from 'react';
+import { MessageSquare, MessageSquarePlus, X } from 'lucide-react';
 import { useStore } from '../store.jsx';
+import { EVENT_TYPES } from '../utils/eventTypes.js';
 
-const TYPES = [
-  { id: 'bezichtiging', label: 'Bezichtiging', icon: '👀', color: 'var(--accent)' },
-  { id: 'klus', label: 'Klus', icon: '🔧', color: 'var(--warning)' },
-  { id: 'mijlpaal', label: 'Mijlpaal', icon: '🏁', color: 'var(--success)' },
-  { id: 'overig', label: 'Overig', icon: '📌', color: 'var(--text-muted)' },
-];
+const TYPES = EVENT_TYPES;
 
 const NL_FULL = new Intl.DateTimeFormat('nl-NL', {
   weekday: 'short',
@@ -69,7 +66,7 @@ export default function Timeline() {
               className={`chip ${filter === t.id ? 'active' : ''}`}
               onClick={() => setFilter(t.id)}
             >
-              <span aria-hidden>{t.icon}</span> {t.label}
+              <t.icon size={16} strokeWidth={1.5} aria-hidden /> {t.label}
             </button>
           ))}
         </div>
@@ -97,7 +94,7 @@ export default function Timeline() {
         >
           {TYPES.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.icon} {t.label}
+              {t.label}
             </option>
           ))}
         </select>
@@ -132,8 +129,8 @@ function EventRow({ event, today }) {
 
   return (
     <div className={`event ${isPast ? 'is-past' : ''} ${isToday ? 'is-today' : ''}`}>
-      <div className="event-dot" style={{ background: meta.color }} aria-hidden>
-        {meta.icon}
+      <div className="event-dot" style={{ color: meta.color }} aria-hidden>
+        <meta.icon size={16} strokeWidth={1.5} />
       </div>
       <div className="event-body">
         <div className="event-head">
@@ -156,7 +153,7 @@ function EventRow({ event, today }) {
             >
               {TYPES.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.icon} {t.label}
+                  {t.label}
                 </option>
               ))}
             </select>
@@ -167,14 +164,14 @@ function EventRow({ event, today }) {
               onChange={(e) => actions.updateEvent(event.id, { date: e.target.value })}
             />
             <button className="btn tiny ghost" onClick={() => setOpen((v) => !v)}>
-              {event.notes ? '📝' : '＋'}
+              {event.notes ? <MessageSquare size={16} strokeWidth={1.5} /> : <MessageSquarePlus size={16} strokeWidth={1.5} />}
             </button>
             <button
               className="btn tiny ghost"
               onClick={() => actions.removeEvent(event.id)}
               title="Verwijderen"
             >
-              ✕
+              <X size={16} strokeWidth={1.5} />
             </button>
           </div>
         </div>

@@ -14,7 +14,9 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import Countdown from './components/Countdown.jsx';
+import { LayoutDashboard, Wallet, Hammer, Tag, Server, House } from 'lucide-react';
+import Milestones from './components/Milestones.jsx';
+import Plate from './components/Plate.jsx';
 import TodoList from './components/TodoList.jsx';
 import Timeline from './components/Timeline.jsx';
 import Agenda from './components/Agenda.jsx';
@@ -56,11 +58,11 @@ function saveLayout(layout) {
 }
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'financien', label: 'Financiën', icon: '💶' },
-  { id: 'uitgaven', label: 'Verbouwing', icon: '💰' },
-  { id: 'verkopen', label: 'Verkopen', icon: '🏷️' },
-  { id: 'server', label: 'Server', icon: '⚙️' },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'financien', label: 'Financiën', icon: Wallet },
+  { id: 'uitgaven', label: 'Verbouwing', icon: Hammer },
+  { id: 'verkopen', label: 'Verkopen', icon: Tag },
+  { id: 'server', label: 'Server', icon: Server },
 ];
 
 export default function App() {
@@ -104,11 +106,11 @@ function Shell() {
         <div className="hero-overlay">
           <div className="hero-top">
             <div className="brand">
-              <span className="brand-icon">🏠</span>
+              <span className="brand-icon" aria-hidden><House size={20} strokeWidth={1.75} /></span>
               <div>
                 <div className="brand-title">Huis Dashboard</div>
                 <div className="brand-sub">
-                  <span className="brand-sub-part">Verkoop Kloversdonk 213</span>
+                  <span className="brand-sub-part">Verkoop Kloversdonk <Plate>213</Plate></span>
                   <span className="brand-sub-sep"> · </span>
                   <a
                     href="https://www.funda.nl/detail/koop/apeldoorn/huis-bloemheuvellaan-51/44475822/"
@@ -116,7 +118,7 @@ function Shell() {
                     rel="noreferrer"
                     className="brand-link brand-sub-part"
                   >
-                    Verhuizing Bloemheuvellaan 51
+                    Verhuizing Bloemheuvellaan <Plate>51</Plate>
                   </a>
                 </div>
               </div>
@@ -129,7 +131,7 @@ function Shell() {
                     className={`nav-tab ${route === item.id ? 'active' : ''}`}
                     onClick={() => goTo(item.id)}
                   >
-                    <span aria-hidden>{item.icon}</span> {item.label}
+                    <item.icon size={16} strokeWidth={1.5} aria-hidden /> {item.label}
                   </button>
                 ))}
               </nav>
@@ -213,12 +215,7 @@ function DashboardBody() {
 
   return (
     <>
-      <div className="countdown-row countdown-row-4">
-        <Countdown stateKey="salePrepDate" eyebrow="Klaar voor de foto's" />
-        <Countdown stateKey="kloversdonkKeyDate" eyebrow="Overdracht Kloversdonk 213" />
-        <Countdown stateKey="moveDate" eyebrow="Verhuisdatum" />
-        <Countdown stateKey="keyDate" eyebrow="Sleutels Bloemheuvellaan 51" />
-      </div>
+      <Milestones />
       <Weather />
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={layout.order} strategy={verticalListSortingStrategy}>

@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from 'react';
+import { PaintRoller, BrickWall, Wrench, HardHat, Sprout, Package, Pin, X } from 'lucide-react';
+import { DOT_COLORS } from '../utils/palette.js';
 import { useStore } from '../store.jsx';
 
 export const CATEGORIES = [
-  { id: 'verf', label: 'Verf', icon: '🎨', color: '#ec4899' },
-  { id: 'materialen', label: 'Materialen', icon: '🧱', color: '#f97316' },
-  { id: 'gereedschap', label: 'Gereedschap', icon: '🧰', color: '#f59e0b' },
-  { id: 'klusser', label: 'Klusser', icon: '👷', color: '#0ea5e9' },
-  { id: 'tuin', label: 'Tuin', icon: '🌱', color: '#10b981' },
-  { id: 'verhuis', label: 'Verhuis', icon: '📦', color: '#8b5cf6' },
-  { id: 'overig', label: 'Overig', icon: '📌', color: '#64748b' },
+  { id: 'verf', label: 'Verf', icon: PaintRoller, color: DOT_COLORS[0] },
+  { id: 'materialen', label: 'Materialen', icon: BrickWall, color: DOT_COLORS[3] },
+  { id: 'gereedschap', label: 'Gereedschap', icon: Wrench, color: DOT_COLORS[6] },
+  { id: 'klusser', label: 'Klusser', icon: HardHat, color: DOT_COLORS[1] },
+  { id: 'tuin', label: 'Tuin', icon: Sprout, color: DOT_COLORS[2] },
+  { id: 'verhuis', label: 'Verhuis', icon: Package, color: DOT_COLORS[4] },
+  { id: 'overig', label: 'Overig', icon: Pin, color: '#8a847a' },
 ];
 
 function catMeta(id) {
@@ -142,7 +144,7 @@ export default function Expenses() {
           >
             {CATEGORIES.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.icon} {c.label}
+                {c.label}
               </option>
             ))}
           </select>
@@ -162,7 +164,7 @@ export default function Expenses() {
         <div className="card-head">
           <div>
             <h2 className="card-title">Overzicht</h2>
-            <div className="card-sub">{state.expenses.length} regels</div>
+            <div className="card-sub">{state.expenses.length} {state.expenses.length === 1 ? 'regel' : 'regels'}</div>
           </div>
           <div className="chip-row">
             <button className={`chip ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>Alles</button>
@@ -174,7 +176,7 @@ export default function Expenses() {
                 className={`chip ${filter === c.id ? 'active' : ''}`}
                 onClick={() => setFilter(c.id)}
               >
-                <span aria-hidden>{c.icon}</span> {c.label}
+                <c.icon size={16} strokeWidth={1.5} aria-hidden /> {c.label}
               </button>
             ))}
           </div>
@@ -214,7 +216,7 @@ function CategoryBreakdown({ perCategory }) {
       {rows.map((r) => (
         <div key={r.id} className="cat-row">
           <div className="cat-label">
-            <span aria-hidden>{r.icon}</span> {r.label}
+            <r.icon size={16} strokeWidth={1.5} aria-hidden /> {r.label}
           </div>
           <div className="cat-bar-wrap" title={`Uitgegeven ${EUR.format(r.done)} · Verwacht ${EUR.format(r.planned)}`}>
             <div
@@ -239,8 +241,8 @@ function ExpenseRow({ expense }) {
 
   return (
     <div className={`expense-row ${expense.planned ? 'is-planned' : ''}`}>
-      <div className="expense-cat" style={{ background: meta.color }} aria-hidden>
-        {meta.icon}
+      <div className="expense-cat" style={{ color: meta.color }} aria-hidden>
+        <meta.icon size={16} strokeWidth={1.5} />
       </div>
       <div className="expense-body">
         <input
@@ -256,7 +258,7 @@ function ExpenseRow({ expense }) {
           >
             {CATEGORIES.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.icon} {c.label}
+                {c.label}
               </option>
             ))}
           </select>
@@ -284,7 +286,7 @@ function ExpenseRow({ expense }) {
         onClick={() => actions.removeExpense(expense.id)}
         title="Verwijderen"
       >
-        ✕
+        <X size={16} strokeWidth={1.5} />
       </button>
     </div>
   );

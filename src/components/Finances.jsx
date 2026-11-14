@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { useStore } from '../store.jsx';
 
 const EUR = new Intl.NumberFormat('nl-NL', {
@@ -202,9 +203,9 @@ export default function Finances() {
             </div>
           )}
           <nav className="chip-row fin-view-tabs">
-            <button className={`chip ${view === 'overzicht' ? 'active' : ''}`} onClick={() => setView('overzicht')}>📊 Overzicht</button>
-            <button className={`chip ${view === 'transacties' ? 'active' : ''}`} onClick={() => setView('transacties')}>💳 Uitgaven boeken</button>
-            <button className={`chip ${view === 'begroting' ? 'active' : ''}`} onClick={() => setView('begroting')}>📋 Begroting</button>
+            <button className={`chip ${view === 'overzicht' ? 'active' : ''}`} onClick={() => setView('overzicht')}>Overzicht</button>
+            <button className={`chip ${view === 'transacties' ? 'active' : ''}`} onClick={() => setView('transacties')}>Uitgaven boeken</button>
+            <button className={`chip ${view === 'begroting' ? 'active' : ''}`} onClick={() => setView('begroting')}>Begroting</button>
           </nav>
         </div>
       </div>
@@ -358,11 +359,11 @@ function OverviewView({ state, actions, period, anchor, month, monthlyTotals, ca
             <div className="card-sub">Werkelijk vs. begroot per maand · lijn = cumulatief saldo</div>
           </div>
           <div className="fin-legend">
-            <LegendDot color="#10b981" label="Inkomsten actueel" />
-            <LegendDot color="#10b98155" label="Inkomsten begroot" />
-            <LegendDot color="#ef4444" label="Uitgaven actueel" />
-            <LegendDot color="#ef444455" label="Uitgaven begroot" />
-            <LegendDot color="#6366f1" label="Cumulatief" line />
+            <LegendDot color="#2f7d4f" label="Inkomsten actueel" />
+            <LegendDot color="#2f7d4f47" label="Inkomsten begroot" />
+            <LegendDot color="#7b7266" label="Uitgaven actueel" />
+            <LegendDot color="#7b726647" label="Uitgaven begroot" />
+            <LegendDot color="#a8432b" label="Cumulatief" line />
           </div>
         </div>
         <CashflowChart cumulative={cumulative} selectedMonth={month} />
@@ -629,8 +630,8 @@ function PeriodProgressBars({ stats, tone, period, timePct }) {
               {period !== 'day' && s.target > 0 && (
                 <div className="fin-cat-bar-time" style={{ left: `${(s.target / max) * timePct}%` }} title={`Tijd verstreken: ${timePct}%`} />
               )}
-              <div className="fin-cat-bar-fill-budget" style={{ width: `${(s.target / max) * 100}%`, background: s.color }} />
-              <div className={`fin-cat-bar-fill-actual ${over ? 'is-over' : ''}`} style={{ width: `${Math.min(s.actual, max) / max * 100}%`, background: s.color }} />
+              <div className="fin-cat-bar-fill-budget" style={{ width: `${(s.target / max) * 100}%` }} />
+              <div className={`fin-cat-bar-fill-actual ${over ? 'is-over' : ''}`} style={{ width: `${Math.min(s.actual, max) / max * 100}%` }} />
             </div>
             {s.target > 0 && (
               <div className="fin-cat-bar-sub">
@@ -650,7 +651,7 @@ function PeriodProgressBars({ stats, tone, period, timePct }) {
 
 function TransactionRow({ tx, catById, categories, actions }) {
   const cat = catById[tx.categoryId];
-  const color = cat?.color || '#94a3b8';
+  const color = cat?.color || '#8a847a';
   const isIncome = cat?.type === 'income';
   const [desc, setDesc] = useState(tx.description || '');
   useEffect(() => setDesc(tx.description || ''), [tx.description]);
@@ -701,7 +702,7 @@ function TransactionRow({ tx, catById, categories, actions }) {
         </div>
         <div className="fin-tx-date">{DAY_MONTH.format(new Date(tx.date + 'T00:00'))}</div>
       </div>
-      <button className="btn tiny ghost" title="Verwijder" onClick={() => actions.removeFinanceTransaction(tx.id)}>✕</button>
+      <button className="btn tiny ghost" title="Verwijder" onClick={() => actions.removeFinanceTransaction(tx.id)}><X size={16} strokeWidth={1.5} /></button>
     </div>
   );
 }
@@ -887,7 +888,7 @@ function BudgetRow({ cat, budget, months, current, actions }) {
             }
           }}
           title="Categorie verwijderen"
-        >✕</button>
+        ><X size={16} strokeWidth={1.5} /></button>
       </td>
     </tr>
   );
@@ -974,7 +975,7 @@ function CashflowChart({ cumulative, selectedMonth }) {
           return (
             <g key={t}>
               <line x1={pad.left} x2={pad.left + chartW} y1={y} y2={y} stroke="var(--border)" strokeDasharray={t === 0 ? '' : '3 3'} />
-              <text x={pad.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="var(--text-muted)">{EUR.format(t)}</text>
+              <text x={pad.left - 6} y={y + 3} textAnchor="end" fontSize="12" fill="var(--text-muted)">{EUR.format(t)}</text>
             </g>
           );
         })}
@@ -989,15 +990,15 @@ function CashflowChart({ cumulative, selectedMonth }) {
               {active && (
                 <rect x={pad.left + i * bandW} y={pad.top} width={bandW} height={chartH} fill="var(--accent-soft)" opacity="0.5" />
               )}
-              <rect x={inX} y={yBar(m.incomeBudget)} width={barW} height={chartH - (yBar(m.incomeBudget) - pad.top)} fill="#10b981" opacity="0.28" />
-              <rect x={inX} y={yBar(m.incomeActual)} width={barW} height={chartH - (yBar(m.incomeActual) - pad.top)} fill="#10b981" />
-              <rect x={outX} y={yBar(m.expenseBudget)} width={barW} height={chartH - (yBar(m.expenseBudget) - pad.top)} fill="#ef4444" opacity="0.28" />
-              <rect x={outX} y={yBar(m.expenseActual)} width={barW} height={chartH - (yBar(m.expenseActual) - pad.top)} fill="#ef4444" />
-              <text x={cx} y={height - 12} textAnchor="middle" fontSize="10.5" fill={active ? 'var(--accent)' : 'var(--text-muted)'} fontWeight={active ? 700 : 500}>
+              <rect x={inX} y={yBar(m.incomeBudget)} width={barW} height={chartH - (yBar(m.incomeBudget) - pad.top)} fill="#2f7d4f" opacity="0.28" />
+              <rect x={inX} y={yBar(m.incomeActual)} width={barW} height={chartH - (yBar(m.incomeActual) - pad.top)} fill="#2f7d4f" />
+              <rect x={outX} y={yBar(m.expenseBudget)} width={barW} height={chartH - (yBar(m.expenseBudget) - pad.top)} fill="#7b7266" opacity="0.28" />
+              <rect x={outX} y={yBar(m.expenseActual)} width={barW} height={chartH - (yBar(m.expenseActual) - pad.top)} fill="#7b7266" />
+              <text x={cx} y={height - 12} textAnchor="middle" fontSize="12" fill={active ? '#a8432b' : 'var(--text-muted)'} fontWeight={500}>
                 {capitalize(MONTH_SHORT.format(monthDate(m.month)))}
               </text>
               {i === 0 || i === cumulative.length - 1 || active ? (
-                <text x={cx} y={Math.max(yRun(m.running) - 6, pad.top + 8)} textAnchor="middle" fontSize="10" fill="#6366f1" fontWeight="600">
+                <text x={cx} y={Math.max(yRun(m.running) - 6, pad.top + 8)} textAnchor="middle" fontSize="12" fill="#a8432b" fontWeight="500">
                   {EUR.format(m.running)}
                 </text>
               ) : null}
@@ -1009,13 +1010,13 @@ function CashflowChart({ cumulative, selectedMonth }) {
           <line x1={pad.left} x2={pad.left + chartW} y1={yRun(0)} y2={yRun(0)} stroke="var(--danger)" strokeDasharray="4 4" opacity="0.4" />
         )}
 
-        <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={linePath} fill="none" stroke="#a8432b" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
         {cumulative.map((m, i) => {
           const cx = pad.left + i * bandW + bandW / 2;
           const cy = yRun(m.running);
           const active = m.month === selectedMonth;
           return (
-            <circle key={m.month} cx={cx} cy={cy} r={active ? 4.5 : 3} fill="#fff" stroke="#6366f1" strokeWidth={active ? 2.5 : 1.8} />
+            <circle key={m.month} cx={cx} cy={cy} r={active ? 4.5 : 3} fill="#fff" stroke="#a8432b" strokeWidth={active ? 2.5 : 1.8} />
           );
         })}
       </svg>
@@ -1033,14 +1034,8 @@ function KpiCard({ label, amount, budget, tone, hint, invertBudget }) {
     const better = invertBudget ? raw <= 0 : raw >= 0;
     delta = { raw, better };
   }
-  const color =
-    tone === 'income'
-      ? 'var(--success)'
-      : tone === 'expense'
-      ? 'var(--danger)'
-      : tone === 'balance'
-      ? (amount >= 0 ? 'var(--success)' : 'var(--danger)')
-      : 'var(--accent)';
+  // Het bedrag zelf blijft rustig; alleen een negatief saldo en het verschil met de begroting dragen kleur.
+  const color = tone === 'balance' && amount < 0 ? 'var(--danger)' : 'var(--text)';
   return (
     <div className={`card fin-kpi fin-kpi-${tone}`}>
       <div className="eyebrow">{label}</div>
@@ -1060,7 +1055,7 @@ function KpiCard({ label, amount, budget, tone, hint, invertBudget }) {
 }
 
 function MiniStat({ label, amount, tone }) {
-  const color = tone === 'income' ? 'var(--success)' : 'var(--danger)';
+  const color = 'var(--text)';
   return (
     <div className="card fin-mini">
       <div className="eyebrow">{label}</div>

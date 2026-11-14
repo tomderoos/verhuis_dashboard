@@ -1,4 +1,5 @@
 import React from 'react';
+import { GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -22,7 +23,7 @@ export default function DashSection({ id, title, collapsed, onToggle, children }
           {...listeners}
           {...attributes}
         >
-          ⋮⋮
+          <GripVertical size={16} strokeWidth={1.5} />
         </button>
         <button
           type="button"
@@ -31,7 +32,7 @@ export default function DashSection({ id, title, collapsed, onToggle, children }
           aria-label={collapsed ? `${title} uitklappen` : `${title} inklappen`}
           title={collapsed ? 'Uitklappen' : 'Inklappen'}
         >
-          {collapsed ? '▸' : '▾'}
+          {collapsed ? <ChevronRight size={16} strokeWidth={1.5} /> : <ChevronDown size={16} strokeWidth={1.5} />}
         </button>
       </div>
       {collapsed ? (
@@ -42,7 +43,7 @@ export default function DashSection({ id, title, collapsed, onToggle, children }
           title="Klik om uit te klappen"
         >
           <span className="dash-collapsed-title">{title}</span>
-          <span className="dash-collapsed-hint">uitklappen ▸</span>
+          <span className="dash-collapsed-hint">Uitklappen <ChevronRight size={16} strokeWidth={1.5} aria-hidden /></span>
         </button>
       ) : (
         children

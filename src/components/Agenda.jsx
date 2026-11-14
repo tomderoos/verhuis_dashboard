@@ -1,16 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, X, CalendarDays } from 'lucide-react';
 import { useStore } from '../store.jsx';
+import { EVENT_META } from '../utils/eventTypes.js';
 
 const MONTH_LONG = new Intl.DateTimeFormat('nl-NL', { month: 'long', year: 'numeric' });
 const DAY_LONG = new Intl.DateTimeFormat('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
 const DOW = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 
-const EVENT_META = {
-  bezichtiging: { icon: '👀', color: 'var(--accent)' },
-  klus: { icon: '🔧', color: 'var(--warning)' },
-  mijlpaal: { icon: '🏁', color: 'var(--success)' },
-  overig: { icon: '📌', color: 'var(--text-muted)' },
-};
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -235,7 +231,7 @@ export default function Agenda() {
                 ? 'geen'
                 : `${feeds.length} gekoppeld${state.icsEvents?.length ? ` · ${state.icsEvents.length} afspraken` : ''}`}
             </span>
-            <span aria-hidden>{feedsOpen ? '▾' : '▸'}</span>
+            {feedsOpen ? <ChevronDown size={16} strokeWidth={1.5} aria-hidden /> : <ChevronRight size={16} strokeWidth={1.5} aria-hidden />}
           </button>
           {feedsOpen && (
             <div className="agenda-feeds-body">
@@ -261,7 +257,7 @@ export default function Agenda() {
                         title="Verwijder deze feed"
                         onClick={() => actions.removeCalendarFeed(f.id)}
                       >
-                        ✕
+                        <X size={16} strokeWidth={1.5} />
                       </button>
                     </li>
                   ))}
@@ -326,7 +322,7 @@ function AgendaItem({ item, actions }) {
           title="Loskoppelen van datum"
           onClick={() => actions.updateTodo(t.id, { plannedDate: null })}
         >
-          ✕
+          <X size={16} strokeWidth={1.5} />
         </button>
       </div>
     );
@@ -343,10 +339,10 @@ function AgendaItem({ item, actions }) {
       <div className="agenda-item is-ics">
         <div
           className="agenda-item-icon"
-          style={{ background: e.color || 'var(--accent)' }}
+          style={{ color: e.color || 'var(--accent)' }}
           aria-hidden
         >
-          📅
+          <CalendarDays size={16} strokeWidth={1.5} />
         </div>
         <div className="agenda-item-body">
           <div className="agenda-item-text">{e.summary || '(zonder titel)'}</div>
@@ -360,7 +356,7 @@ function AgendaItem({ item, actions }) {
   const meta = EVENT_META[e.type] || EVENT_META.overig;
   return (
     <div className="agenda-item is-event">
-      <div className="agenda-item-icon" style={{ background: meta.color }} aria-hidden>{meta.icon}</div>
+      <div className="agenda-item-icon" style={{ color: meta.color }} aria-hidden><meta.icon size={16} strokeWidth={1.5} /></div>
       <div className="agenda-item-body">
         <div className="agenda-item-text">{e.title}</div>
         {e.notes && <div className="agenda-item-sub">{e.notes}</div>}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Sun, CloudSun, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning, Thermometer, Droplet, Wind, PaintRoller } from 'lucide-react';
 
 const APELDOORN = { lat: 52.2112, lon: 5.9699 };
 
@@ -18,17 +19,17 @@ function isPaintFriendly(day) {
 }
 
 function iconForCode(code) {
-  if (code === 0) return '☀️';
-  if (code === 1 || code === 2) return '🌤️';
-  if (code === 3) return '☁️';
-  if (code === 45 || code === 48) return '🌫️';
-  if (code >= 51 && code <= 57) return '🌦️';
-  if (code >= 61 && code <= 67) return '🌧️';
-  if (code >= 71 && code <= 77) return '🌨️';
-  if (code >= 80 && code <= 82) return '🌦️';
-  if (code >= 85 && code <= 86) return '🌨️';
-  if (code >= 95) return '⛈️';
-  return '🌡️';
+  if (code === 0) return Sun;
+  if (code === 1 || code === 2) return CloudSun;
+  if (code === 3) return Cloud;
+  if (code === 45 || code === 48) return CloudFog;
+  if (code >= 51 && code <= 57) return CloudDrizzle;
+  if (code >= 61 && code <= 67) return CloudRain;
+  if (code >= 71 && code <= 77) return CloudSnow;
+  if (code >= 80 && code <= 82) return CloudRain;
+  if (code >= 85 && code <= 86) return CloudSnow;
+  if (code >= 95) return CloudLightning;
+  return Thermometer;
 }
 
 function labelForCode(code) {
@@ -94,7 +95,7 @@ export default function Weather() {
         <div>
           <h2 className="card-title">Weer Apeldoorn — komende 7 dagen</h2>
           <div className="card-sub">
-            Groen gemarkeerd: geschikt voor buiten schilderen (≥10 °C, droog, wind &lt;30 km/u).
+            Klusdag: geschikt om buiten te schilderen (vanaf 10 °C, droog, wind onder 30 km/u)
             {updatedAt && ` · Bijgewerkt ${updatedAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`}
           </div>
         </div>
@@ -118,6 +119,7 @@ export default function Weather() {
 function DayTile({ day, isToday }) {
   const paint = isPaintFriendly(day);
   const date = new Date(day.date + 'T00:00');
+  const Icon = iconForCode(day.code);
   return (
     <div className={`weather-tile ${paint ? 'is-paint-ok' : ''} ${isToday ? 'is-today' : ''}`}>
       <div className="weather-day">
@@ -125,18 +127,18 @@ function DayTile({ day, isToday }) {
       </div>
       <div className="weather-date">{NL_DAY_NUM.format(date)}</div>
       <div className="weather-icon" title={labelForCode(day.code)} aria-label={labelForCode(day.code)}>
-        {iconForCode(day.code)}
+        <Icon size={24} strokeWidth={1.5} />
       </div>
       <div className="weather-temp">
         <span className="temp-max">{day.tMax}°</span>
         <span className="temp-min">{day.tMin}°</span>
       </div>
       <div className="weather-detail">
-        💧 {Math.round(day.rainProb)}%
+        <Droplet size={12} strokeWidth={1.5} aria-hidden /> {Math.round(day.rainProb)}%
         {day.rainMm >= 0.5 && <span className="dim"> · {day.rainMm.toFixed(1)}mm</span>}
       </div>
-      <div className="weather-detail">💨 {day.wind} km/u</div>
-      {paint && <div className="paint-badge" title="Geschikt voor schilderen">🎨 klusdag</div>}
+      <div className="weather-detail"><Wind size={12} strokeWidth={1.5} aria-hidden /> {day.wind} km/u</div>
+      {paint && <div className="paint-badge" title="Geschikt voor schilderen"><PaintRoller size={12} strokeWidth={1.5} aria-hidden /> Klusdag</div>}
     </div>
   );
 }

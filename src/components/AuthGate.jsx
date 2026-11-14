@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { House } from 'lucide-react';
 import { useStore } from '../store.jsx';
 
 const IS_DEV = import.meta.env.DEV;
@@ -34,7 +35,7 @@ export default function AuthGate({ children }) {
       <div className="auth-screen">
         <div className="auth-card">
           <div className="auth-brand">
-            <span className="brand-icon">🏠</span>
+            <span className="brand-icon" aria-hidden><House size={20} strokeWidth={1.75} /></span>
             <div>
               <div className="brand-title">Huis Dashboard</div>
               <div className="brand-sub">Verkoop Kloversdonk 213 · Verhuizing Bloemheuvellaan 51</div>

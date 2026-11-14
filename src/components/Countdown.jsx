@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Pencil, X } from 'lucide-react';
 import { useStore } from '../store.jsx';
+import Plate from './Plate.jsx';
 
 function diffParts(target, now) {
   const totalMs = target - now;
@@ -21,108 +23,156 @@ const NL_DATE = new Intl.DateTimeFormat('nl-NL', {
   month: 'long',
   year: 'numeric',
 });
+const NL_DATE_SHORT = new Intl.DateTimeFormat('nl-NL', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const NL_TIME = new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit' });
 
-const VARIANT_CLASS = {
-  keyDate: 'variant-primary',
-  moveDate: 'variant-warm',
-  kloversdonkKeyDate: 'variant-cool',
-  salePrepDate: 'variant-mint',
-};
+const pad = (n) => String(n).padStart(2, '0');
 
-export default function Countdown({ stateKey, eyebrow }) {
-  const { state, actions } = useStore();
-  const value = state[stateKey];
+function useNow(active) {
   const [now, setNow] = useState(() => new Date());
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ? value.slice(0, 16) : '');
-
   useEffect(() => {
-    if (!value) return;
+    if (!active) return;
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
-  }, [value]);
+  }, [active]);
+  return now;
+}
 
+function useDateEditor(stateKey, value) {
+  const { actions } = useStore();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ? value.slice(0, 16) : '');
   useEffect(() => {
     setDraft(value ? value.slice(0, 16) : '');
   }, [value]);
-
-  const save = () => {
-    actions.setCountdown(stateKey, draft || null);
-    setEditing(false);
+  return {
+    editing,
+    draft,
+    setDraft,
+    toggle: () => setEditing((v) => !v),
+    open: () => setEditing(true),
+    save: () => {
+      actions.setCountdown(stateKey, draft || null);
+      setEditing(false);
+    },
+    clear: () => {
+      actions.setCountdown(stateKey, null);
+      setDraft('');
+      setEditing(false);
+    },
   };
+}
 
-  const clearDate = () => {
-    actions.setCountdown(stateKey, null);
-    setDraft('');
-    setEditing(false);
-  };
+function Label({ label, plate }) {
+  return (
+    <span className="milestone-label">
+      {label}
+      {plate && <> <Plate>{plate}</Plate></>}
+    </span>
+  );
+}
 
-  const target = value ? new Date(value) : null;
-  const parts = target ? diffParts(target, now) : null;
-  const variant = VARIANT_CLASS[stateKey] || 'variant-primary';
+function Editor({ ed, hasValue }) {
+  return (
+    <div className="milestone-editor">
+      <input
+        type="datetime-local"
+        className="input"
+        value={ed.draft}
+        onChange={(e) => ed.setDraft(e.target.value)}
+      />
+      <button className="btn primary small" onClick={ed.save}>Opslaan</button>
+      {hasValue && (
+        <button className="btn ghost small" onClick={ed.clear}>Verwijderen</button>
+      )}
+    </div>
+  );
+}
+
+function EditButton({ ed }) {
+  return (
+    <button
+      className="btn ghost tiny icon-btn"
+      onClick={ed.toggle}
+      aria-label={ed.editing ? 'Sluit bewerken' : 'Bewerk datum'}
+      title={ed.editing ? 'Sluit bewerken' : 'Bewerk datum'}
+    >
+      {ed.editing ? <X size={16} strokeWidth={1.5} /> : <Pencil size={16} strokeWidth={1.5} />}
+    </button>
+  );
+}
+
+// De eerstvolgende mijlpaal: groot, met een lopende klok.
+export function LeadCountdown({ stateKey, label, plate }) {
+  const { state } = useStore();
+  const value = state[stateKey];
+  const target = new Date(value);
+  const now = useNow(true);
+  const parts = diffParts(target, now);
+  const ed = useDateEditor(stateKey, value);
 
   return (
-    <section className={`card countdown-card ${variant} ${value ? '' : 'is-empty'}`}>
-      <div className="countdown-head">
-        <div className="eyebrow">{eyebrow}</div>
-        <button
-          className="btn ghost tiny edit-btn"
-          onClick={() => setEditing((v) => !v)}
-          aria-label={editing ? 'Sluit bewerken' : 'Bewerk datum'}
-          title={editing ? 'Sluit bewerken' : 'Bewerk datum'}
-        >
-          {editing ? '✕' : '✎'}
-        </button>
+    <section className="card milestone-lead">
+      <div className="milestone-head">
+        <div>
+          <div className="milestone-kicker">Eerstvolgende</div>
+          <Label label={label} plate={plate} />
+        </div>
+        <EditButton ed={ed} />
       </div>
 
-      {value ? (
-        <div className="countdown-date">{NL_DATE.format(target)}</div>
-      ) : (
-        <div className="countdown-date muted">Nog niet gepland</div>
-      )}
+      {ed.editing && <Editor ed={ed} hasValue />}
 
-      {editing && (
-        <div className="stack">
-          <input
-            type="datetime-local"
-            className="input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <div className="row" style={{ gap: 6 }}>
-            <button className="btn primary small" onClick={save}>Opslaan</button>
-            {value && (
-              <button className="btn ghost small" onClick={clearDate}>Verwijderen</button>
-            )}
-          </div>
-        </div>
-      )}
+      <div className="milestone-figure" role="timer" aria-live="off">
+        <span className="milestone-days">{parts.days}</span>
+        <span className="milestone-days-unit">{parts.days === 1 ? 'dag' : 'dagen'}</span>
+        <span className="milestone-clock">
+          {pad(parts.hours)}:{pad(parts.minutes)}:{pad(parts.seconds)}
+        </span>
+      </div>
 
-      {parts && parts.over && <div className="countdown-over">🎉 Het is zover!</div>}
-
-      {parts && !parts.over && (
-        <div className="countdown-grid" role="timer" aria-live="polite">
-          <CountUnit value={parts.days} label="dagen" />
-          <CountUnit value={parts.hours} label="uur" />
-          <CountUnit value={parts.minutes} label="min" />
-          <CountUnit value={parts.seconds} label="sec" />
-        </div>
-      )}
-
-      {!parts && !editing && (
-        <button className="btn primary set-btn" onClick={() => setEditing(true)}>
-          Datum instellen
-        </button>
-      )}
+      <div className="milestone-date">
+        {NL_DATE.format(target)} om {NL_TIME.format(target)}
+      </div>
     </section>
   );
 }
 
-function CountUnit({ value, label }) {
+// De overige mijlpalen: compacte rijen.
+export function CountdownRow({ stateKey, label, plate }) {
+  const { state } = useStore();
+  const value = state[stateKey];
+  const target = value ? new Date(value) : null;
+  const now = useNow(false);
+  const ed = useDateEditor(stateKey, value);
+  const days = target ? Math.ceil((target - now) / 86400000) : null;
+
   return (
-    <div className="count-unit">
-      <div className="count-value">{String(value).padStart(2, '0')}</div>
-      <div className="count-label">{label}</div>
-    </div>
+    <li className="milestone-row">
+      <div className="milestone-row-main">
+        <Label label={label} plate={plate} />
+        <span className="milestone-row-date">
+          {target ? NL_DATE_SHORT.format(target) : 'Nog niet gepland'}
+        </span>
+      </div>
+      <div className="milestone-row-side">
+        {target && (
+          <span className="milestone-row-days">
+            {days > 0 ? `nog ${days} ${days === 1 ? 'dag' : 'dagen'}` : 'geweest'}
+          </span>
+        )}
+        {target || ed.editing ? (
+          <EditButton ed={ed} />
+        ) : (
+          <button className="btn ghost small" onClick={ed.open}>Datum instellen</button>
+        )}
+      </div>
+      {ed.editing && <Editor ed={ed} hasValue={!!value} />}
+    </li>
   );
 }

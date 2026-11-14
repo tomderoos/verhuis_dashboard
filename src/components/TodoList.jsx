@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
+import { GripVertical, MessageSquare, MessageSquarePlus, Image, X, ImagePlus, User, Camera, Calendar, CircleDashed } from 'lucide-react';
 import { useStore } from '../store.jsx';
+import { colorFor } from '../utils/palette.js';
 
 function burstConfetti(origin) {
   const defaults = {
@@ -56,8 +58,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const SIZES = [
-  { id: 'klein', label: 'Klein', icon: '🔹', color: '#0ea5e9' },
-  { id: 'groot', label: 'Groot', icon: '🔶', color: '#f97316' },
+  { id: 'klein', label: 'Klein' },
+  { id: 'groot', label: 'Groot' },
 ];
 
 function sizeMeta(id) {
@@ -66,13 +68,7 @@ function sizeMeta(id) {
 
 const PERSON_SUGGESTIONS = ['Tom', 'Rinske', 'Samen', 'Lotte', 'Anne'];
 
-const PERSON_COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#0ea5e9', '#8b5cf6', '#f43f5e'];
-function personColor(name) {
-  if (!name) return '#94a3b8';
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return PERSON_COLORS[h % PERSON_COLORS.length];
-}
+const personColor = colorFor;
 
 const ROOM_SUGGESTIONS = [
   'Woonkamer',
@@ -337,8 +333,8 @@ export default function TodoList() {
               key={p}
               className={`chip ${personFilter === p ? 'active' : ''}`}
               onClick={() => setPersonFilter(p)}
-              style={personFilter === p ? undefined : { borderColor: personColor(p), color: personColor(p) }}
             >
+              <span className="person-dot" style={{ background: personColor(p) }} aria-hidden />
               {p}
             </button>
           ))}
@@ -368,7 +364,7 @@ export default function TodoList() {
               className={`chip ${sizeFilter === s.id ? 'active' : ''}`}
               onClick={() => setSizeFilter(s.id)}
             >
-              <span aria-hidden>{s.icon}</span> {s.label} ({sizeCounts[s.id]})
+              {s.label} <span className="chip-count">{sizeCounts[s.id]}</span>
             </button>
           ))}
           {sizeCounts.__empty__ > 0 && (
@@ -376,7 +372,7 @@ export default function TodoList() {
               className={`chip ${sizeFilter === '__empty__' ? 'active' : ''}`}
               onClick={() => setSizeFilter('__empty__')}
             >
-              Onbepaald ({sizeCounts.__empty__})
+              Onbepaald <span className="chip-count">{sizeCounts.__empty__}</span>
             </button>
           )}
         </div>
@@ -395,13 +391,13 @@ export default function TodoList() {
             className={`chip ${shootFilter === 'before' ? 'active' : ''}`}
             onClick={() => setShootFilter('before')}
           >
-            Vóór de shoot ({shootCounts.before})
+            Vóór de shoot <span className="chip-count">{shootCounts.before}</span>
           </button>
           <button
             className={`chip ${shootFilter === 'after' ? 'active' : ''}`}
             onClick={() => setShootFilter('after')}
           >
-            <span aria-hidden>📸</span> Mag na de Funda shoot ({shootCounts.after})
+            Mag na de Funda shoot <span className="chip-count">{shootCounts.after}</span>
           </button>
         </div>
       )}
@@ -488,7 +484,7 @@ function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dr
             {...dragHandleProps.listeners}
             {...dragHandleProps.attributes}
           >
-            ⋮⋮
+            <GripVertical size={16} strokeWidth={1.5} />
           </button>
         )}
         <label className="checkbox">
@@ -543,21 +539,21 @@ function TodoItem({ todo, expanded, onExpand, photosExpanded, onExpandPhotos, dr
           onClick={onExpand}
           title="Opmerking"
         >
-          {todo.comment ? '📝' : '＋'}
+          {todo.comment ? <MessageSquare size={16} strokeWidth={1.5} /> : <MessageSquarePlus size={16} strokeWidth={1.5} />}
         </button>
         <button
           className={`btn tiny ${hasPhoto ? 'accent' : 'ghost'}`}
           onClick={onExpandPhotos}
           title="Voor- en na-foto's"
         >
-          📷
+          <Image size={16} strokeWidth={1.5} />
         </button>
         <button
           className="btn tiny ghost"
           onClick={() => actions.removeTodo(todo.id)}
           title="Verwijderen"
         >
-          ✕
+          <X size={16} strokeWidth={1.5} />
         </button>
         </span>
         </div>
@@ -634,7 +630,7 @@ function PhotoPanel({ todoId, photos }) {
               </div>
             ) : (
               <label className="todo-photo-drop" htmlFor={inputId}>
-                {busy === kind ? 'Uploaden…' : '📎 Foto toevoegen'}
+                {busy === kind ? 'Uploaden…' : <><ImagePlus size={16} strokeWidth={1.5} aria-hidden /> Foto toevoegen</>}
               </label>
             )}
             <input
@@ -736,7 +732,7 @@ function PersonTag({ person, onChange }) {
           title="Wie doet deze klus?"
           onClick={() => setEditing(true)}
         >
-          👤<span className="tag-text"> wie?</span>
+          <User size={12} strokeWidth={1.5} aria-hidden /><span className="tag-text">wie?</span>
         </button>
       );
     }
@@ -745,7 +741,6 @@ function PersonTag({ person, onChange }) {
       <button
         type="button"
         className="person-tag"
-        style={{ borderColor: color, color }}
         title={`Toegewezen aan ${person} — klik om te wijzigen`}
         onClick={() => setEditing(true)}
       >
@@ -787,11 +782,10 @@ function SizeTag({ size, onChange }) {
     <button
       type="button"
       className={`size-tag ${meta ? `is-${meta.id}` : 'is-empty'}`}
-      style={meta ? { borderColor: meta.color, color: meta.color } : undefined}
       onClick={() => onChange(nextSize)}
       title={title}
     >
-      {meta ? <><span aria-hidden>{meta.icon}</span> {label}</> : <>⚪<span className="tag-text"> klus</span></>}
+      {meta ? label : <><CircleDashed size={12} strokeWidth={1.5} aria-hidden /><span className="tag-text">klus</span></>}
     </button>
   );
 }
@@ -804,8 +798,8 @@ function AfterShootTag({ afterShoot, onChange }) {
       onClick={() => onChange(!afterShoot)}
       title={afterShoot ? 'Mag na de Funda shoot — klik om uit te zetten' : 'Markeer als: mag na de Funda shoot'}
     >
-      <span aria-hidden>📸</span>
-      {afterShoot && ' Na shoot'}
+      <Camera size={12} strokeWidth={1.5} aria-hidden />
+      {afterShoot && 'Na shoot'}
     </button>
   );
 }
@@ -823,7 +817,7 @@ function DateTag({ date, onChange }) {
           title="Plan deze taak in de agenda"
           onClick={() => setEditing(true)}
         >
-          📅
+          <Calendar size={12} strokeWidth={1.5} />
         </button>
       );
     }
@@ -835,7 +829,7 @@ function DateTag({ date, onChange }) {
         title={`Gepland: ${label} — klik om te wijzigen`}
         onClick={() => setEditing(true)}
       >
-        📅 {label}
+        <Calendar size={12} strokeWidth={1.5} aria-hidden /> {label}
       </button>
     );
   }
